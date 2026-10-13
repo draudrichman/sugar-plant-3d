@@ -1,0 +1,1316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Sugar Plant</title>
+<meta name="description" content="Mother Nature's Herbology, 3D test: the Sugar Plant (Gestational Diabetes), built from the client's artwork and animated in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Macondo+Swash+Caps&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+:root {
+  /* The Dark Arts tokens, so this sits in the same game. */
+  --gold: #d9a441; --gold-lit: #f4d98b; --gold-dim: #8a5f22;
+  --bronze: #2a1d16; --bronze-lit: #4a3424;
+  --parch: #f4e7c6; --parch-dark: #e2d0a6; --ink: #2b2036;
+  --red: #f2536b; --note: #655a45; --kicker: #7a531d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: #050c08; color: var(--parch);
+  font-family: "Cormorant Garamond", Georgia, serif; font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+}
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 372px; height: 100dvh; }
+
+/* ---------- the stage ---------- */
+.stage {
+  position: relative; overflow: hidden; min-height: 0;
+  background:
+    radial-gradient(60% 45% at 50% 90%, rgb(122 214 168 / 10%), transparent 70%),
+    radial-gradient(110% 85% at 46% 32%, #24493b 0%, #11291e 46%, #050c08 100%);
+}
+.stage::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgb(0 0 0 / 50%) 100%);
+}
+#c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#c.dragging { cursor: grabbing; }
+.title { position: absolute; left: 28px; top: 22px; z-index: 2; pointer-events: none; max-width: 60%; }
+.kicker { font: 700 12px/1.3 "Cormorant Garamond", serif; letter-spacing: .22em; text-transform: uppercase; color: #c9a45c; }
+h1 {
+  font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400;
+  font-size: clamp(30px, 3.6vw, 46px); line-height: 1.05; margin: 6px 0 4px; color: var(--gold-lit);
+  text-shadow: 0 2px 0 rgb(0 0 0 / 45%), 0 0 24px rgb(244 217 139 / 18%);
+}
+.sub { font-style: italic; font-size: 18px; color: #cfe3c9; }
+.hint { position: absolute; left: 28px; bottom: 20px; z-index: 2; pointer-events: none; font-size: 15px; color: rgb(207 227 201 / 75%); }
+.stats { position: absolute; right: 16px; bottom: 16px; z-index: 2; pointer-events: none; font: 12px/1.4 ui-monospace, Consolas, monospace; color: rgb(207 227 201 / 55%); text-align: right; }
+
+/* Her speech bubble, from the artwork: a cream card with a soft pink edge. */
+.bubble {
+  position: absolute; z-index: 3; left: 0; top: 0; pointer-events: none;
+  max-width: 190px; padding: 10px 14px; border-radius: 20px;
+  background: #fff8f0; color: #6b3d36; border: 2px solid #e7b7b0;
+  font: 600 17px/1.2 "Cormorant Garamond", serif; text-align: center;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 30%);
+  opacity: 0; transform: translate(0, 6px) scale(.92); transform-origin: 0 100%;
+  transition: opacity .22s, transform .22s;
+}
+.bubble::after {
+  content: ''; position: absolute; left: 14px; bottom: -9px; width: 14px; height: 14px;
+  background: #fff8f0; border-left: 2px solid #e7b7b0; border-bottom: 2px solid #e7b7b0;
+  transform: skewX(-25deg) rotate(-30deg); border-bottom-left-radius: 4px;
+}
+.bubble[data-on='true'] { opacity: 1; transform: none; }
+
+.toast {
+  position: absolute; left: 50%; bottom: 52px; transform: translate(-50%, 12px); z-index: 3;
+  max-width: min(560px, calc(100% - 32px)); padding: 10px 18px; border-radius: 14px;
+  background: rgb(26 18 13 / 88%); border: 1px solid rgb(217 164 65 / 55%);
+  color: var(--parch); font-size: 17px; text-align: center; opacity: 0; pointer-events: none;
+  transition: opacity .25s, transform .25s;
+}
+.toast[data-on='true'] { opacity: 1; transform: translate(-50%, 0); }
+.toast[data-tone='good'] { border-color: rgb(122 214 168 / 70%); }
+.toast[data-tone='bad'] { border-color: rgb(242 83 107 / 75%); }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; font-size: 19px; z-index: 4; }
+
+/* ---------- the panel ---------- */
+.panel {
+  background: linear-gradient(180deg, #2a1d16, #1a120d);
+  border-left: 1px solid rgb(217 164 65 / 35%);
+  padding: 20px 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;
+}
+.card {
+  background: var(--parch); color: var(--ink); border-radius: 16px; padding: 14px 14px 16px;
+  box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%), 0 8px 22px rgb(0 0 0 / 35%);
+}
+.card h2 { font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400; font-size: 23px; margin: 0; color: #4a2a1a; }
+.card .k, .dev .k { font: 700 12px/1.3 "Cormorant Garamond", serif; letter-spacing: .18em; text-transform: uppercase; color: var(--kicker); }
+.card p { margin: 6px 0 0; font-size: 16px; line-height: 1.35; color: var(--note); }
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.tool {
+  display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 8px 10px;
+  border-radius: 12px; border: 1px solid rgb(138 95 34 / 55%);
+  background: linear-gradient(#fffaf0, #efdcb0); color: #3a2414;
+  font: 700 15px/1.12 "Cormorant Garamond", serif; text-align: left; cursor: pointer;
+  transition: transform .12s, box-shadow .12s, opacity .2s;
+}
+.tool:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgb(74 42 26 / 25%); }
+.tool:focus-visible { outline: 2px solid #4a2a6a; outline-offset: 2px; }
+.tool .ic { font-size: 22px; line-height: 1; flex: none; }
+.tool[data-done='true'] { opacity: .5; background: linear-gradient(#e6f5ea, #cfe8d6); border-color: rgb(63 150 64 / 60%); cursor: default; }
+.tool[data-bad='true'] { animation: nope .42s; border-color: var(--red); }
+@keyframes nope { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+.meter { margin-top: 14px; }
+.meter .row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: var(--kicker); letter-spacing: .06em; text-transform: uppercase; }
+.bar { height: 12px; border-radius: 99px; background: #e2d0a6; box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #ee94a5, #6bb552); transition: width .5s; }
+details { font-size: 16px; }
+details summary { cursor: pointer; font-weight: 700; color: #4a2a1a; }
+details ul { margin: 8px 0 0; padding-left: 18px; color: var(--note); line-height: 1.35; }
+details li { margin: 3px 0; }
+.dev { background: rgb(0 0 0 / 22%); border: 1px solid rgb(217 164 65 / 30%); border-radius: 16px; padding: 14px; }
+.dev .k { color: #c9a45c; }
+.dev h2 { color: var(--gold-lit); font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400; font-size: 22px; margin: 0; }
+.dev .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.dev button {
+  padding: 9px 10px; border-radius: 99px; border: 1px solid rgb(217 164 65 / 60%);
+  background: linear-gradient(#4a3424, #2a1d16); color: var(--gold-lit);
+  font: 700 15px/1 "Cormorant Garamond", serif; cursor: pointer;
+}
+.dev button:hover { border-color: var(--gold-lit); }
+.dev label { display: block; margin-top: 12px; font-size: 15px; color: #d8c9a4; }
+.dev input[type=range] { width: 100%; accent-color: var(--gold); }
+.ref { display: block; width: 100%; border-radius: 10px; margin-top: 10px; box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%); }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 66dvh auto; height: auto; }
+  .panel { border-left: 0; border-top: 1px solid rgb(217 164 65 / 35%); }
+  .title { left: 16px; top: 14px; max-width: 90%; }
+  .hint { left: 16px; bottom: 12px; font-size: 14px; }
+  .stats { display: none; }
+  .toast { font-size: 15px; padding: 8px 12px; bottom: 40px; }
+  .bubble { font-size: 15px; max-width: 150px; }
+}
+@media (prefers-reduced-motion: reduce) { .tool, .toast, .bar i, .bubble { transition: none; } .tool[data-bad='true'] { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="stage" id="stage">
+    <canvas id="c" aria-label="The Sugar Plant, an animated 3D plant"></canvas>
+    <div class="title">
+      <div class="kicker">Mother Nature's Herbology · 3D test</div>
+      <h1>The Sugar Plant</h1>
+      <div class="sub">Gestational Diabetes · the Sugar Overload Curse</div>
+    </div>
+    <div class="bubble" id="bubble" aria-live="polite"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="hint">Drag to turn the pot. Choose the right garden care to keep it small.</div>
+    <div class="stats" id="stats"></div>
+  </main>
+
+  <aside class="panel">
+    <section class="card">
+      <div class="k">Garden care</div>
+      <h2>Keep me small</h2>
+      <p>Four of these treat the Sugar Overload Curse. Two belong to other plants.</p>
+      <div class="tools" id="tools"></div>
+      <div class="meter">
+        <div class="row"><span>Swollen</span><span id="pct">0%</span><span>Just right</span></div>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary>What the plant is showing</summary>
+        <ul>
+          <li><b>Sugar cubes</b> crusting the fruit and weighing down the branches: extra sugar in the blood.</li>
+          <li><b>A swollen fruit</b>: "too much sugar makes me grow", and so does the baby.</li>
+          <li><b>Puffing up</b> at the wrong care: the curse feeds on it.</li>
+        </ul>
+        <p>Healed, the sugar falls away, the fruit shrinks back to size and it flowers.</p>
+      </details>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary>Her artwork, for comparison</summary>
+        <img class="ref" src="reference-gestational-diabetes.jpg" alt="The client's Gestational Diabetes Sugar Plant artwork">
+      </details>
+    </section>
+
+    <section class="dev">
+      <div class="k">Test controls</div>
+      <h2>Animation states</h2>
+      <div class="btns">
+        <button type="button" data-act="wrong">Wrong card</button>
+        <button type="button" data-act="right">Right card</button>
+        <button type="button" data-act="heal">Heal now</button>
+        <button type="button" data-act="reset">Reset</button>
+      </div>
+      <label>Health <span id="hval">0%</span>
+        <input type="range" id="health" min="0" max="100" value="0" step="1">
+      </label>
+    </section>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* =========================================================================
+   Small helpers
+   ========================================================================= */
+const $ = (s) => document.querySelector(s);
+const V3 = THREE.Vector3;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const backOut = (t) => { const s = 1.9; return 1 + (s + 1) * (t - 1) ** 3 + s * (t - 1) ** 2; };
+const TAU = Math.PI * 2;
+const DEG = Math.PI / 180;
+function rng(seed) {
+  return () => {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const R = rng(20261013);                       // layout: the same plant every load
+const rr = (a, b) => a + (b - a) * R();
+const rnd = (a, b) => a + (b - a) * Math.random(); // live motion: different every time
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MOTION = REDUCE ? 0.35 : 1;
+
+/** A damped spring. Every reactive movement runs through one of these, so
+    nothing snaps: it overshoots, wobbles and settles like something alive. */
+class Spring {
+  constructor(k, d, x = 0) { this.k = k; this.d = d; this.x = x; this.v = 0; this.target = x; }
+  step(dt) {
+    const n = Math.max(1, Math.ceil(dt * 240)), h = dt / n;
+    for (let i = 0; i < n; i++) { this.v += (this.k * (this.target - this.x) - this.d * this.v) * h; this.x += this.v * h; }
+    return this.x;
+  }
+  kick(v) { this.v += v; }
+  set(x) { this.x = this.target = x; this.v = 0; }
+}
+
+/* =========================================================================
+   Renderer
+   ========================================================================= */
+const stage = $('#stage');
+const canvas = $('#c');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+} catch (err) {
+  const msg = document.createElement('div');
+  msg.className = 'nogl';
+  msg.textContent = 'This test needs WebGL, which this browser has turned off. Try current Chrome, Edge, Safari or Firefox.';
+  stage.append(msg);
+  throw err;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.info.autoReset = false;
+
+/* Her line work is a soft brown ink, thin, never black. OutlineEffect draws
+   each mesh a second time, inflated and back-faced, in that colour. */
+const INK = new THREE.Color('#5a3a30');
+const effect = new OutlineEffect(renderer, { defaultThickness: 0.0034, defaultColor: INK.toArray(), defaultAlpha: 1 });
+const outline = (m, thickness = 0.0034) => { m.userData.outlineParameters = { thickness, color: INK.toArray(), alpha: 1, visible: true, keepAlive: true }; return m; };
+const noOutline = (m) => { m.userData.outlineParameters = { visible: false }; return m; };
+
+/* Soft bands of light, closer to her watercolour than to hard cel shading. */
+function gradient(vals) {
+  const d = new Uint8Array(vals.length * 4);
+  vals.forEach((v, i) => d.set([v, v, v, 255], i * 4));
+  const t = new THREE.DataTexture(d, vals.length, 1);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+  return t;
+}
+const BANDS = gradient([118, 172, 220, 255]);
+function toon(color, o = {}) {
+  const { thickness, ...rest } = o;
+  return outline(new THREE.MeshToonMaterial({ color, gradientMap: BANDS, ...rest }), thickness);
+}
+
+/* =========================================================================
+   Painted textures, drawn here: no image files
+   ========================================================================= */
+function canvasTex(w, h, draw, { srgb = true } = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+const leafTex = canvasTex(128, 256, (x, w, h) => {
+  x.fillStyle = '#dcdcdc'; x.fillRect(0, 0, w, h);
+  const g = x.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0, 'rgba(0,0,0,.12)'); g.addColorStop(.5, 'rgba(255,255,255,.14)'); g.addColorStop(1, 'rgba(0,0,0,.12)');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineCap = 'round';
+  x.lineWidth = 4; x.beginPath(); x.moveTo(w / 2, h); x.lineTo(w / 2, 8); x.stroke();
+  x.lineWidth = 1.8; x.strokeStyle = 'rgba(70,60,50,.35)';
+  for (let i = 1; i <= 6; i++) {
+    const y = h - i * h / 7.2;
+    for (const s of [-1, 1]) { x.beginPath(); x.moveTo(w / 2, y); x.quadraticCurveTo(w / 2 + s * w * .2, y - h * .05, w / 2 + s * w * .44, y - h * .13); x.stroke(); }
+  }
+});
+/* The fruit's skin is a mask, not a colour: red = white sugar speckle, green =
+   darker freckles. The shader mixes them over the skin colour, so the speckle
+   can thin out as the sugar leaves without repainting anything. */
+const skinMask = canvasTex(1024, 512, (x, w, h) => {
+  x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 5200; i++) {
+    const v = R(), y = (1 - v) * h;
+    if (R() > 0.35 + 0.65 * v) continue;                 // denser toward the crown
+    x.fillStyle = `rgb(${Math.round(rr(150, 255))},0,0)`;
+    x.beginPath(); x.arc(R() * w, y, rr(0.8, 3.0), 0, TAU); x.fill();
+  }
+  for (let i = 0; i < 520; i++) {
+    x.fillStyle = 'rgb(0,255,0)';
+    x.beginPath(); x.arc(R() * w, R() * h, rr(0.8, 2), 0, TAU); x.fill();
+  }
+}, { srgb: false });
+const potTex = canvasTex(512, 256, (x, w, h) => {
+  x.fillStyle = '#ececec'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1800; i++) {
+    x.fillStyle = R() < .55 ? 'rgba(110,60,40,.09)' : 'rgba(255,255,255,.14)';
+    x.beginPath(); x.arc(R() * w, R() * h, rr(.6, 2.2), 0, TAU); x.fill();
+  }
+  x.fillStyle = 'rgba(70,30,20,.16)'; x.fillRect(0, h * .245, w, h * .035);
+  x.fillStyle = 'rgba(255,255,255,.16)'; x.fillRect(0, h * .05, w, h * .05);
+});
+const soilTex = canvasTex(256, 256, (x, w, h) => {
+  x.fillStyle = '#d0d0d0'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1500; i++) {
+    x.fillStyle = R() < .6 ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.2)';
+    x.beginPath(); x.arc(R() * w, R() * h, rr(.8, 3.2), 0, TAU); x.fill();
+  }
+});
+/* Her blush: a soft pink cloud with a few freckles in it. */
+const blushTex = canvasTex(128, 96, (x, w, h) => {
+  const g = x.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * .48);
+  g.addColorStop(0, 'rgba(240,120,130,.55)'); g.addColorStop(.6, 'rgba(240,120,130,.25)'); g.addColorStop(1, 'rgba(240,120,130,0)');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  x.fillStyle = 'rgba(200,80,90,.75)';
+  for (const [fx, fy] of [[.32, .44], [.46, .36], [.6, .46], [.42, .58], [.56, .62], [.7, .55]]) { x.beginPath(); x.arc(fx * w, fy * h, 3, 0, TAU); x.fill(); }
+});
+const sparkTex = canvasTex(64, 64, (x, w, h) => {
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 30);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.25, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 2; x.lineCap = 'round';
+  x.beginPath(); x.moveTo(32, 3); x.lineTo(32, 61); x.moveTo(3, 32); x.lineTo(61, 32); x.stroke();
+}, { srgb: false });
+const blobTex = canvasTex(128, 128, (x) => {
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 62);
+  g.addColorStop(0, 'rgba(0,0,0,.6)'); g.addColorStop(.55, 'rgba(0,0,0,.26)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+});
+const runeTex = canvasTex(512, 512, (x, w) => {
+  const c = w / 2;
+  x.strokeStyle = '#fff'; x.shadowColor = '#fff'; x.shadowBlur = 14;
+  x.lineWidth = 5; x.beginPath(); x.arc(c, c, 236, 0, TAU); x.stroke();
+  x.lineWidth = 2.5; x.beginPath(); x.arc(c, c, 206, 0, TAU); x.stroke();
+  x.lineWidth = 2; x.beginPath(); x.arc(c, c, 150, 0, TAU); x.stroke();
+  for (let i = 0; i < 18; i++) {
+    const a = i / 18 * TAU; x.save(); x.translate(c + Math.cos(a) * 221, c + Math.sin(a) * 221); x.rotate(a + Math.PI / 2);
+    x.lineWidth = 2; x.beginPath(); x.moveTo(0, -9); x.quadraticCurveTo(7, 0, 0, 9); x.quadraticCurveTo(-7, 0, 0, -9); x.stroke(); x.restore();
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU;
+    x.lineWidth = 2; x.beginPath(); x.moveTo(c, c);
+    x.quadraticCurveTo(c + Math.cos(a - .5) * 120, c + Math.sin(a - .5) * 120, c + Math.cos(a) * 150, c + Math.sin(a) * 150);
+    x.quadraticCurveTo(c + Math.cos(a + .5) * 120, c + Math.sin(a + .5) * 120, c, c); x.stroke();
+  }
+});
+
+/* =========================================================================
+   Scene, camera, light
+   ========================================================================= */
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
+const world = new THREE.Group();   // the turntable: dragging turns this
+scene.add(world);
+
+// warm pink bounce from below: her shadows are rosy, never grey
+scene.add(new THREE.HemisphereLight('#fff4ea', '#7a4a52', 1.25));
+const key = new THREE.DirectionalLight('#fff3e2', 2.4);
+key.position.set(-3.2, 6.8, 4.6);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+Object.assign(key.shadow.camera, { left: -3, right: 3, top: 3.8, bottom: -1, near: 1, far: 18 });
+key.shadow.bias = -0.0006;
+scene.add(key);
+const rim = new THREE.DirectionalLight('#b8ffe0', 1.3);
+rim.position.set(3.2, 3.6, -5);
+scene.add(rim);
+const fill = new THREE.DirectionalLight('#ffd9e4', 0.55);
+fill.position.set(4, 1.4, 3);
+scene.add(fill);
+const healLight = new THREE.PointLight('#ffd6e4', 0, 6, 1.6);
+scene.add(healLight);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(5, 48), noOutline(new THREE.ShadowMaterial({ color: '#03100a', opacity: 0.32 })));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+world.add(ground);
+const blob = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 2.1), noOutline(new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })));
+blob.rotation.x = -Math.PI / 2; blob.position.y = 0.006;
+world.add(blob);
+const runeMat = noOutline(new THREE.MeshBasicMaterial({ map: runeTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: '#f0a8c0', opacity: 0.3 }));
+const rune = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 2.9), runeMat);
+rune.rotation.x = -Math.PI / 2; rune.position.y = 0.004;
+world.add(rune);
+
+/* =========================================================================
+   Palette from her painting. Pairs are [cursed, healed].
+   ========================================================================= */
+const PAL = {
+  skin:  ['#ee93a3', '#f6bcae'],   // hot sugary pink, easing to a soft peach-pink
+  leaf:  ['#7f9a5e', '#4f9a49'],
+  leaf2: ['#8ea86c', '#64ae56'],
+  stem:  ['#73905a', '#4f8a3f'],
+  rune:  ['#f0a8c0', '#8fe0b4'],
+};
+const pal = {};
+for (const k in PAL) pal[k] = PAL[k].map((c) => new THREE.Color(c));
+const mixPal = (out, k, h) => out.copy(pal[k][0]).lerp(pal[k][1], h);
+
+const skinMat = toon(PAL.skin[0], { map: skinMask, thickness: 0.004 });
+const skinU = { uSugar: { value: 1 } };
+skinMat.onBeforeCompile = (sh) => {
+  sh.uniforms.uSugar = skinU.uSugar;
+  sh.fragmentShader = 'uniform float uSugar;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
+    vec4 sm = texture2D( map, vMapUv );
+    diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 1.0, 0.96, 0.95 ), sm.r * ( 0.15 + 0.7 * uSugar ) );
+    diffuseColor.rgb *= 1.0 - sm.g * 0.2;`);
+};
+const lidMat = toon(PAL.skin[0], { thickness: 0.0022, side: THREE.DoubleSide });
+const stemMat = toon(PAL.stem[0], { thickness: 0.0036 });
+const leafMat = toon(PAL.leaf[0], { map: leafTex, side: THREE.DoubleSide, thickness: 0.003 });
+const leafMat2 = toon(PAL.leaf2[0], { map: leafTex, side: THREE.DoubleSide, thickness: 0.003 });
+const calyxMat = toon('#ec8ea0', { side: THREE.DoubleSide, thickness: 0.0026 });
+const thornMat = toon('#eaa0a8', { thickness: 0.0016 });
+const cubeMat = toon('#fff4f2', { thickness: 0.0026, emissive: '#ffd9df', emissiveIntensity: 0.12 });
+const cubeMatPink = toon('#ffe3e6', { thickness: 0.0026, emissive: '#ffc9d2', emissiveIntensity: 0.12 });
+const potMat = toon('#c4875a', { map: potTex, thickness: 0.0042 });
+const soilMat = toon('#3f2b20', { map: soilTex, thickness: 0.0025 });
+const petalMat = toon('#f7a6ba', { side: THREE.DoubleSide, thickness: 0.0022 });
+const petalMat2 = toon('#fff1f5', { side: THREE.DoubleSide, thickness: 0.0022 });
+const coreMat = toon('#ffd451', { thickness: 0.0018 });
+const eyeWhiteMat = toon('#fffaf4', { thickness: 0.0026 });
+const irisMat = noOutline(new THREE.MeshToonMaterial({ color: '#3b2016', gradientMap: BANDS }));
+const pupilMat = noOutline(new THREE.MeshBasicMaterial({ color: '#140a08' }));
+const shineMat = noOutline(new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+const browMat = toon('#5a3a2e', { thickness: 0.0012 });
+const lashMat = noOutline(new THREE.MeshBasicMaterial({ color: '#3a221c' }));
+const blushMat = noOutline(new THREE.MeshBasicMaterial({ map: blushTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+const mouthMat = noOutline(new THREE.MeshBasicMaterial({ color: '#8a3a46', polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }));
+const lipMat = noOutline(new THREE.MeshBasicMaterial({ color: '#5a3030', polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+
+/* =========================================================================
+   Geometry builders
+   ========================================================================= */
+/** A leaf, petal or sepal as a small curved sheet. Length 1 along +Y. */
+function sheet({ width = 0.36, cup = 0.16, curl = 0.14, tipPinch = 0.3, cols = 6, rows = 12, point = 0.8 } = {}) {
+  const pos = [], uv = [], idx = [];
+  for (let j = 0; j <= rows; j++) {
+    const v = j / rows;
+    const hw = width * Math.pow(Math.sin(Math.PI * Math.min(v * 1.05, 1)), point) * (1 - tipPinch * v);
+    for (let i = 0; i <= cols; i++) {
+      const u = i / cols * 2 - 1;
+      pos.push(u * hw, v, -cup * u * u * hw * 2 + curl * v * v);
+      uv.push(u * 0.5 + 0.5, v);
+    }
+  }
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const a = j * (cols + 1) + i, b = a + 1, c = a + cols + 1, d = c + 1;
+    idx.push(a, b, d, a, d, c);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+const LEAF = sheet({ width: 0.42, cup: 0.14, curl: 0.18, point: 0.7 });       // her broad, pointed leaves
+const SEPAL = sheet({ width: 0.3, cup: 0.25, curl: 0.25, tipPinch: 0.55 });
+const CALYX = sheet({ width: 0.34, cup: 0.2, curl: 0.3, tipPinch: 0.7, cols: 4, rows: 6 });
+const PETAL = sheet({ width: 0.55, cup: 0.25, curl: -0.12, tipPinch: -0.2, cols: 4, rows: 6, point: 0.6 });
+const CUBE = new RoundedBoxGeometry(1, 1, 1, 2, 0.16);
+
+/** A bendable stem: tapered tubes skinned to a chain of bones, so the whole
+    thing curves smoothly as the bones turn. `strands` > 1 twists that many
+    tubes round each other: her stem is two strands wound together. */
+function limb({ len, r0, r1, bones: nb, mat, strands = 1, twist = 0, spread = 0 }) {
+  const parts = [];
+  for (let s = 0; s < strands; s++) {
+    const g = new THREE.CylinderGeometry(r1, r0, len, 10, nb * 8, false);
+    g.translate(0, len / 2, 0);
+    if (strands > 1) {
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const y = p.getY(i), a = (y / len) * twist * TAU + (s / strands) * TAU;
+        const r = spread * lerp(1, 0.6, y / len);
+        p.setX(i, p.getX(i) + Math.cos(a) * r); p.setZ(i, p.getZ(i) + Math.sin(a) * r);
+      }
+      g.computeVertexNormals();
+    }
+    parts.push(g);
+  }
+  const geo = parts.length > 1 ? mergeGeometries(parts) : parts[0];
+  const p = geo.attributes.position, seg = len / nb;
+  const si = [], sw = [];
+  for (let i = 0; i < p.count; i++) {
+    const f = clamp(p.getY(i) / seg, 0, nb - 1e-4), b = Math.floor(f), t = f - b;
+    si.push(b, Math.min(b + 1, nb - 1), 0, 0); sw.push(1 - t, t, 0, 0);
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  const bones = [];
+  for (let i = 0; i < nb; i++) { const b = new THREE.Bone(); b.position.y = i ? seg : 0; if (i) bones[i - 1].add(b); bones.push(b); }
+  const mesh = new THREE.SkinnedMesh(geo, mat);
+  mesh.add(bones[0]); mesh.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
+  mesh.frustumCulled = false; mesh.castShadow = true;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(r1, 10, 8), mat);
+  cap.position.y = seg; bones[nb - 1].add(cap);
+  return { mesh, bones, seg };
+}
+
+/** Her curly tendril: up, then a tightening spiral, drawn in the XY plane. */
+function tendril({ rise = 0.12, r0 = 0.07, coils = 1.7, thick = 0.011, dir = 1 }) {
+  const pts = [new V3(0, 0, 0), new V3(0, rise * 0.5, 0), new V3(0, rise, 0)];
+  const N = 46;
+  for (let i = 1; i <= N; i++) {
+    const k = i / N, a = k * coils * TAU, r = r0 * (1 - 0.78 * k);
+    pts.push(new V3(dir * (r0 - r * Math.cos(a)), rise + r * Math.sin(a), 0));
+  }
+  return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, thick, 6, false), stemMat);
+}
+
+/* =========================================================================
+   The pot and soil
+   ========================================================================= */
+const POT_H = 0.76, SOIL_Y = 0.665, POT_R = 0.6;
+const potProfile = [
+  [0.0, 0.0], [0.46, 0.0], [0.5, 0.03], [0.53, 0.18], [0.56, 0.33], [0.585, 0.45], [0.6, 0.52],
+  [0.63, 0.55], [0.71, 0.56], [0.74, 0.6], [0.745, 0.69], [0.71, 0.74], [0.64, 0.745], [0.615, 0.71], [0.6, 0.665],
+].map(([r, y]) => new THREE.Vector2(r, y));
+const potGeo = new THREE.LatheGeometry(potProfile, 44);
+{ const p = potGeo.attributes.position, uv = potGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setY(i, p.getY(i) / POT_H); }
+const pot = new THREE.Mesh(potGeo, potMat); pot.castShadow = true; world.add(pot);
+const soil = new THREE.Mesh(new THREE.CircleGeometry(0.605, 40), soilMat);
+soil.rotation.x = -Math.PI / 2; soil.position.y = SOIL_Y; world.add(soil);
+
+/* =========================================================================
+   The plant
+   ========================================================================= */
+const plant = new THREE.Group();
+plant.position.y = SOIL_Y;
+world.add(plant);
+const UP = new V3(0, 1, 0);
+
+/* ---------- a twisted, thorny stem ---------- */
+const trunk = limb({ len: 0.82, r0: 0.07, r1: 0.055, bones: 4, mat: stemMat, strands: 2, twist: 1.3, spread: 0.045 });
+plant.add(trunk.mesh);
+const THORN = new THREE.ConeGeometry(0.014, 0.05, 6);
+function thorn(parent, y, az, tilt = 0.9) {
+  const t = new THREE.Mesh(THORN, thornMat);
+  const out = new V3(Math.sin(az), 0, Math.cos(az));
+  t.position.copy(out).multiplyScalar(0.06).setY(y);
+  t.quaternion.setFromUnitVectors(UP, out.clone().multiplyScalar(Math.sin(tilt)).add(new V3(0, Math.cos(tilt), 0)).normalize());
+  parent.add(t);
+}
+for (let i = 0; i < 4; i++) { thorn(trunk.bones[i], trunk.seg * 0.5, i * 2.1 + 0.4); if (i % 2) thorn(trunk.bones[i], trunk.seg * 0.2, i * 2.1 + 2.6); }
+
+/* ---------- leaves, all driven the same way ---------- */
+const leaves = [];
+/** dirWell/dirSick are where the leaf points, in its parent's space; health
+    picks a direction between them and the leaf flutters about it. */
+function addLeaf(parent, at, dirWell, dirSick, size, mat = leafMat, geo = LEAF) {
+  const pivot = new THREE.Group(); pivot.position.copy(at); parent.add(pivot);
+  const m = new THREE.Mesh(geo, mat); m.scale.setScalar(size); pivot.add(m);
+  leaves.push({ pivot, mesh: m, size, dirWell: dirWell.clone().normalize(), dirSick: dirSick.clone().normalize(), roll: rr(-0.5, 0.5), ph: rr(0, TAU), f: rr(1.3, 2.2) });
+  return m;
+}
+
+/* ---------- the neck: collar of leaves, then the fruit on top ---------- */
+const neck = new THREE.Group();
+neck.position.y = trunk.seg;
+trunk.bones[3].add(neck);
+for (let i = 0; i < 8; i++) {                       // the green cup the fruit sits in
+  const az = (i / 8) * TAU + 0.2;
+  const out = new V3(Math.sin(az), 0, Math.cos(az));
+  addLeaf(neck, out.clone().multiplyScalar(0.12).setY(0.02),
+    out.clone().multiplyScalar(0.8).add(new V3(0, 0.75, 0)), out.clone().multiplyScalar(1).add(new V3(0, 0.15, 0)),
+    rr(0.34, 0.42), i % 2 ? leafMat : leafMat2, SEPAL);
+}
+
+const HA = 0.64, HB = 0.6, HC = 0.6;            // the fruit's three radii, at its biggest
+const swell = new THREE.Group();                // scaled from the bottom: it grows up out of its collar
+neck.add(swell);
+const head = new THREE.Group();
+head.position.y = HB * 0.9;
+swell.add(head);
+const headMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 44), skinMat);
+headMesh.scale.set(HA, HB, HC); headMesh.castShadow = true;
+head.add(headMesh);
+
+const surfZ = (x, y) => HC * Math.sqrt(Math.max(1e-4, 1 - (x / HA) ** 2 - (y / HB) ** 2));
+const surfN = (x, y, z) => new V3(x / (HA * HA), y / (HB * HB), z / (HC * HC)).normalize();
+function onHead(y, az, inset = 0) {
+  const rh = Math.sqrt(Math.max(0, 1 - (y / HB) ** 2));
+  const v = new V3(HA * rh * Math.sin(az), y, HC * rh * Math.cos(az));
+  const n = surfN(v.x, v.y, v.z);
+  return { p: v.addScaledVector(n, -inset), n };
+}
+/** A flat decal wrapped onto the fruit's curve, for the blush. */
+function decal(cx, cy, w, h, mat) {
+  const g = new THREE.PlaneGeometry(w, h, 8, 6), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = cx + p.getX(i), y = cy + p.getY(i); p.setXYZ(i, x, y, surfZ(x, y) + 0.006); }
+  const m = new THREE.Mesh(g, mat); head.add(m); return m;
+}
+
+/* ---------- face: big glossy brown eyes, lashes, worried brows ---------- */
+const eyes = [];
+for (const s of [-1, 1]) {
+  const ex = s * 0.21, ey = -0.02, re = 0.13;
+  const ez = surfZ(ex, ey), n = surfN(ex, ey, ez);
+  const g = new THREE.Group();
+  g.position.set(ex, ey, ez).addScaledVector(n, -re * 0.5);
+  g.quaternion.setFromUnitVectors(new V3(0, 0, 1), n);
+  head.add(g);
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(re, 28, 20), eyeWhiteMat));
+  const look = new THREE.Group(); g.add(look);
+  const iris = new THREE.Mesh(new THREE.SphereGeometry(re * 0.8, 24, 16), irisMat);
+  iris.scale.z = 0.36; iris.position.z = re * 0.7; look.add(iris);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(re * 0.42, 20, 14), pupilMat);
+  pupil.scale.z = 0.3; pupil.position.z = re * 0.86; look.add(pupil);
+  const shine = new THREE.Mesh(new THREE.SphereGeometry(re * 0.24, 14, 10), shineMat);
+  shine.position.set(-re * 0.26, re * 0.3, re * 0.93); shine.scale.z = 0.4; look.add(shine);
+  const shine2 = new THREE.Mesh(new THREE.SphereGeometry(re * 0.1, 10, 8), shineMat);
+  shine2.position.set(re * 0.28, -re * 0.26, re * 0.95); shine2.scale.z = 0.4; look.add(shine2);
+  const upper = new THREE.Mesh(new THREE.SphereGeometry(re * 1.06, 28, 14, 0, TAU, 0, Math.PI / 2), lidMat);
+  const lower = new THREE.Mesh(new THREE.SphereGeometry(re * 1.055, 28, 14, 0, TAU, Math.PI / 2, Math.PI / 2), lidMat);
+  g.add(upper, lower);
+  // lashes ride on the upper lid, three flicks at the outer corner
+  for (const [a, len] of [[0.35, 0.07], [0.62, 0.075], [0.9, 0.06]]) {
+    const lash = new THREE.Mesh(new THREE.ConeGeometry(0.008, len, 5), lashMat);
+    const ang = s > 0 ? a : Math.PI - a;               // around the lid rim, from the outer corner
+    const rimP = new V3(Math.cos(ang) * re * 1.06, 0, Math.sin(ang) * re * 1.06);
+    const outDir = rimP.clone().normalize().multiplyScalar(0.7).add(new V3(0, 0.75, 0)).normalize();
+    lash.position.copy(rimP).addScaledVector(outDir, len / 2);
+    lash.quaternion.setFromUnitVectors(UP, outDir);
+    upper.add(lash);
+  }
+  const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.11, 4, 8), browMat);
+  brow.rotation.z = Math.PI / 2;
+  const browPivot = new THREE.Group();
+  const by = 0.19;
+  browPivot.position.set(s * 0.21, by, surfZ(s * 0.21, by) + 0.01);
+  browPivot.rotation.y = s * 0.3;
+  browPivot.add(brow); head.add(browPivot);
+  eyes.push({ s, upper, lower, look, browPivot, brow, by });
+}
+for (const s of [-1, 1]) decal(s * 0.36, -0.17, 0.2, 0.14, blushMat);
+
+/* The mouth: an ink lip and a rosy inside, two strips on the fruit's curve,
+   rebuilt each frame from width, smile and open. */
+const MOUTH_Y = -0.21, MOUTH_COLS = 16;
+function strip(mat) {
+  const n = (MOUTH_COLS + 1) * 2;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const idx = [];
+  for (let i = 0; i < MOUTH_COLS; i++) { const a = i * 2; idx.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+  g.setIndex(idx);
+  const m = new THREE.Mesh(g, mat); m.frustumCulled = false; head.add(m); return m;
+}
+const lip = strip(lipMat), mouth = strip(mouthMat);
+function mouthEdges(u, w, smile, open) {
+  const mid = smile * 0.34 * w * (u * u - 1);
+  const bow = 1 - u * u;
+  return [mid + 0.004 + open * 0.2 * w * bow, mid - 0.004 - open * 0.75 * w * bow];
+}
+function setMouth(w, smile, open) {
+  for (const [m, pad, lift] of [[lip, 0.0085, 0.004], [mouth, 0, 0.007]]) {
+    const a = m.geometry.attributes.position;
+    for (let i = 0; i <= MOUTH_COLS; i++) {
+      const u = i / MOUTH_COLS * 2 - 1, x = u * (w / 2 + pad * 0.5);
+      const [yu, yl] = mouthEdges(u, w, smile, open);
+      const Yu = MOUTH_Y + yu + pad, Yl = MOUTH_Y + yl - pad;
+      a.setXYZ(i * 2, x, Yu, surfZ(x, Yu) + lift);
+      a.setXYZ(i * 2 + 1, x, Yl, surfZ(x, Yl) + lift);
+    }
+    a.needsUpdate = true;
+  }
+}
+
+/* ---------- the top: pink calyx, sprout, two broad leaves, tendrils ---------- */
+const top = new THREE.Group();                 // counter-scaled so it stays lush as the fruit shrinks
+top.position.y = HB * 0.95;
+head.add(top);
+for (let i = 0; i < 6; i++) {
+  const az = (i / 6) * TAU;
+  const out = new V3(Math.sin(az), 0, Math.cos(az));
+  const m = new THREE.Mesh(CALYX, calyxMat); m.scale.setScalar(0.17);
+  const piv = new THREE.Group(); piv.quaternion.setFromUnitVectors(UP, out.clone().multiplyScalar(0.95).add(new V3(0, 0.3, 0)).normalize());
+  piv.add(m); top.add(piv);
+}
+const sprout = limb({ len: 0.22, r0: 0.035, r1: 0.026, bones: 2, mat: stemMat });
+top.add(sprout.mesh);
+const sproutTip = new V3(0, sprout.seg, 0);
+// two big leaves splayed left and right, one behind: perky even while cursed,
+// as she painted it, and only a little flatter
+addLeaf(sprout.bones[1], sproutTip, new V3(-1, 0.7, 0.2), new V3(-1, 0.35, 0.25), 0.66);
+addLeaf(sprout.bones[1], sproutTip, new V3(1, 0.8, -0.05), new V3(1, 0.4, -0.1), 0.7, leafMat2);
+addLeaf(sprout.bones[1], sproutTip, new V3(0.1, 1, -0.6), new V3(0.15, 0.6, -1), 0.46);
+const tendrils = [];
+for (const [x, dir, rise, r0, rot] of [[-0.03, -1, 0.3, 0.08, -0.1], [0.03, 1, 0.12, 0.065, 0.25]]) {
+  const t = tendril({ rise, r0, dir });
+  const piv = new THREE.Group(); piv.position.set(x, 0.02, 0.02); piv.rotation.z = rot; piv.add(t);
+  top.add(piv); tendrils.push(piv);
+}
+const crownFlower = new THREE.Group();          // opens only once it is healed
+crownFlower.position.copy(sproutTip).setY(sprout.seg + 0.03);
+sprout.bones[1].add(crownFlower);
+function flower(parent, size, mat = petalMat, n = 6) {
+  const f = new THREE.Group();
+  for (let i = 0; i < n; i++) {
+    const arm = new THREE.Group(); arm.rotation.y = (i / n) * TAU;
+    const p = new THREE.Mesh(PETAL, mat); p.scale.setScalar(size); p.rotation.x = Math.PI / 2 - 0.55; arm.add(p); f.add(arm);
+  }
+  const core = new THREE.Mesh(new THREE.SphereGeometry(size * 0.2, 12, 8), coreMat); core.position.y = size * 0.08; f.add(core);
+  f.scale.setScalar(1e-4); parent.add(f); return f;
+}
+const blossoms = [{ f: flower(crownFlower, 0.2), s: new Spring(150, 9), at: 0.9 }];
+
+/* ---------- sugar cubes ---------- */
+/** Every cube knows its home and the health at which it falls off, so the
+    sugar comes away a little with each correct card and grows back if the
+    health slider is dragged down. */
+const cubes = [];
+function addCube(parent, pos, quat, size, thr, mat = cubeMat) {
+  const m = new THREE.Mesh(CUBE, mat); m.castShadow = true;
+  m.position.copy(pos); m.quaternion.copy(quat); m.scale.setScalar(size);
+  parent.add(m);
+  cubes.push({ m, home: parent, pos: pos.clone(), quat: quat.clone(), size, thr, state: 'on', grow: 1, v: new V3(), w: new V3(), t: 0 });
+}
+{ // studded over the fruit, clear of the face
+  let placed = 0, tries = 0;
+  while (placed < 30 && tries++ < 400) {
+    const az = rr(0, TAU), y = rr(-0.42, 0.5);
+    const { p, n } = onHead(y, az, 0.012);
+    if (p.z > 0.1 && Math.abs(p.x) < 0.5 && p.y > -0.42 && p.y < 0.3) continue;
+    if (cubes.some((c) => c.pos.distanceTo(p) < 0.12)) continue;
+    const q = new THREE.Quaternion().setFromUnitVectors(UP, n).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(rr(-0.3, 0.3), rr(0, TAU), rr(-0.3, 0.3))));
+    addCube(head, p, q, rr(0.075, 0.105), rr(0.08, 0.9));
+    placed++;
+  }
+}
+
+/* ---------- two arching branches, each hanging a bunch of sugar ---------- */
+const branches = [];
+const clusters = [];
+function addCluster(bone, at, side) {
+  const c = new THREE.Group(); c.position.copy(at); bone.add(c);
+  const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.013, 0.14, 6), stemMat);
+  stalk.position.y = -0.07; c.add(stalk);
+  const s = 0.088;
+  const grid = [[-0.55, 0, 0.3], [0.55, 0, 0.2], [0, 0, -0.55], [-0.3, -1, 0.1], [0.45, -1, -0.15], [0.05, -2, 0.05], [-0.6, -1.1, -0.6]];
+  grid.forEach(([x, y, z], i) => {
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rr(-0.4, 0.4), rr(0, TAU), rr(-0.4, 0.4)));
+    addCube(c, new V3(x * s * 1.1, -0.18 + y * s * 1.02, z * s * 1.1), q, s * rr(0.92, 1.08), 0.15 + i * 0.1, cubeMatPink);
+  });
+  // what grows there instead, once the sugar is gone
+  for (const [x, y, z, sz, mat] of [[0.04, -0.17, 0.05, 0.1, petalMat], [-0.07, -0.12, -0.04, 0.08, petalMat2], [0.06, -0.08, -0.06, 0.07, petalMat]]) {
+    const holder = new THREE.Group(); holder.position.set(x, y, z); holder.rotation.set(rr(-0.5, 0.5), 0, side * 0.6); c.add(holder);
+    blossoms.push({ f: flower(holder, sz, mat, 5), s: new Spring(rr(110, 200), rr(7, 10)), at: rr(0.86, 0.95) });
+  }
+  const rec = { c, bone, swing: new Spring(18, 3), sw: rr(0, TAU) };
+  clusters.push(rec);
+  return rec;
+}
+for (const side of [-1, 1]) {
+  const L = limb({ len: 1.18, r0: 0.048, r1: 0.022, bones: 5, mat: stemMat });
+  L.mesh.position.set(0, trunk.seg * 0.55, 0);
+  L.bones[0].rotation.order = 'YXZ';
+  trunk.bones[2].add(L.mesh);
+  for (let i = 1; i < 4; i++) {
+    const t = new THREE.Mesh(THORN, thornMat); t.scale.setScalar(0.75);
+    t.position.set(0, L.seg * 0.5, -0.03); t.rotation.x = -1.1; L.bones[i].add(t);
+  }
+  // a big leaf standing up off the top of the arch, a smaller one below it
+  addLeaf(L.bones[2], new V3(0, L.seg * 0.4, -0.02), new V3(side * 0.15, 0.35, -1), new V3(side * 0.3, 0.2, -0.3), 0.5, side > 0 ? leafMat : leafMat2);
+  addLeaf(L.bones[1], new V3(0, L.seg * 0.6, 0), new V3(side * 0.9, 0.4, -0.2), new V3(side * 0.6, 0.1, 0.7), 0.3);
+  const tip = tendril({ rise: 0.05, r0: 0.05, dir: side, thick: 0.009 });
+  tip.position.set(0, L.seg, 0); tip.rotation.y = Math.PI / 2; L.bones[4].add(tip);
+  branches.push({ side, L, s: new Spring(rr(36, 48), rr(6.5, 8)), ph: rr(0, TAU), cluster: addCluster(L.bones[4], new V3(0, L.seg * 0.85, 0), side) });
+}
+
+/* =========================================================================
+   Particles: sugar sparkle, puffs, the heal burst
+   ========================================================================= */
+const MAXP = 600;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(MAXP * 3), pCol = new Float32Array(MAXP * 3), pSize = new Float32Array(MAXP), pAlpha = new Float32Array(MAXP), pRot = new Float32Array(MAXP);
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute('aColor', new THREE.BufferAttribute(pCol, 3));
+pGeo.setAttribute('aSize', new THREE.BufferAttribute(pSize, 1));
+pGeo.setAttribute('aAlpha', new THREE.BufferAttribute(pAlpha, 1));
+pGeo.setAttribute('aRot', new THREE.BufferAttribute(pRot, 1));
+const pMat = noOutline(new THREE.ShaderMaterial({
+  uniforms: { uTex: { value: sparkTex }, uPx: { value: 600 } },
+  vertexShader: `
+    attribute vec3 aColor; attribute float aSize; attribute float aAlpha; attribute float aRot;
+    varying vec3 vColor; varying float vAlpha; varying float vRot; uniform float uPx;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = aSize * uPx / -mv.z;
+      vColor = aColor; vAlpha = aAlpha; vRot = aRot;
+    }`,
+  fragmentShader: `
+    uniform sampler2D uTex; varying vec3 vColor; varying float vAlpha; varying float vRot;
+    void main() {
+      vec2 p = gl_PointCoord - 0.5; float c = cos(vRot), s = sin(vRot);
+      p = mat2(c, -s, s, c) * p;
+      vec4 t = texture2D(uTex, p + 0.5);
+      gl_FragColor = vec4(vColor * t.rgb, t.a * vAlpha);
+      #include <colorspace_fragment>
+    }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+const points = new THREE.Points(pGeo, pMat);
+points.frustumCulled = false;
+scene.add(points);
+const P = Array.from({ length: MAXP }, () => ({ life: 0, max: 1, p: new V3(), v: new V3(), s0: 0, s1: 0, c: new THREE.Color(), g: 0, drag: 0, spin: 0, rot: 0, a: 1 }));
+let pNext = 0;
+function emit(at, { v = new V3(), life = 1, s0 = 0.08, s1 = 0, color = '#ffffff', g = 0, drag = 0, a = 1 } = {}) {
+  const q = P[pNext]; pNext = (pNext + 1) % MAXP;
+  q.life = q.max = life; q.p.copy(at); q.v.copy(v); q.s0 = s0; q.s1 = s1; q.c.set(color); q.g = g; q.drag = drag;
+  q.spin = rnd(-3, 3); q.rot = rnd(0, TAU); q.a = a;
+}
+const randDir = () => new V3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize();
+function stepParticles(dt) {
+  for (let i = 0; i < MAXP; i++) {
+    const q = P[i];
+    if (q.life > 0) {
+      q.life -= dt;
+      q.v.y += q.g * dt; q.v.multiplyScalar(Math.exp(-q.drag * dt)); q.p.addScaledVector(q.v, dt);
+      q.rot += q.spin * dt;
+      const k = 1 - q.life / q.max;
+      pPos[i * 3] = q.p.x; pPos[i * 3 + 1] = q.p.y; pPos[i * 3 + 2] = q.p.z;
+      pCol[i * 3] = q.c.r; pCol[i * 3 + 1] = q.c.g; pCol[i * 3 + 2] = q.c.b;
+      pSize[i] = lerp(q.s0, q.s1, k);
+      pAlpha[i] = q.a * Math.sin(Math.PI * Math.min(1, k * 1.15 + 0.08));
+      pRot[i] = q.rot;
+    } else { pSize[i] = 0; pAlpha[i] = 0; }
+  }
+  for (const n of ['position', 'aColor', 'aSize', 'aAlpha', 'aRot']) pGeo.attributes[n].needsUpdate = true;
+}
+const tmpV = new V3(), tmpV2 = new V3(), tmpQ = new THREE.Quaternion();
+const worldPos = (o) => o.getWorldPosition(new V3());
+const headCentre = () => headMesh.getWorldPosition(new V3());
+
+/* =========================================================================
+   State
+   ========================================================================= */
+let hTarget = 0;
+const hPose = new Spring(30, 8.5);     // shape follows health with a little overshoot
+const hCol = new Spring(14, 7.5);      // colour follows smoothly
+const leafS = new Spring(26, 5.5);
+const puff = new Spring(120, 7);       // wrong care: it swells up
+const bounce = new Spring(240, 11);
+const shake = new Spring(300, 7);
+const spin = new Spring(60, 4.5);
+const turn = new Spring(40, 11);
+const lookY = new Spring(60, 12), lookX = new Spring(60, 12);
+let react = null, sigh = null, healing = null, blink = 0, nextBlink = 2, nextSigh = 5, nextLook = 0;
+let wander = { x: 0, y: 0 };
+const pointer = { x: 0, y: 0, t: -99 };
+const drag = { on: false, x: 0, last: -99 };
+let glow = 0, t = 0, healed = false, burstBoost = 1;
+
+function doReact(type) {
+  react = { type, t: 0, dur: type === 'wrong' ? 1.4 : 1.15, kicked: false };
+  const c = headCentre();
+  if (type === 'wrong') {
+    // "Too much sugar makes me grow!" It puffs up, and the sugar glitters.
+    puff.kick(2.4); shake.kick(6);
+    for (let i = 0; i < 26; i++) {
+      const d = randDir();
+      emit(c.clone().addScaledVector(d, 0.6), { v: d.multiplyScalar(rnd(0.3, 0.9)), life: rnd(0.6, 1), s0: 0.1, s1: 0.03, color: '#ffd0dc', drag: 1.8, a: 0.9 });
+    }
+    say('Too much sugar makes me grow!', 2600);
+  } else {
+    bounce.kick(5); leafS.kick(3);
+    for (let i = 0; i < 20; i++) {
+      const d = randDir(); d.y = Math.abs(d.y) * 0.6 + 0.3;
+      emit(c.clone().addScaledVector(d, 0.6), { v: d.clone().multiplyScalar(rnd(0.5, 1.1)), life: rnd(0.7, 1.1), s0: 0.1, s1: 0.02, color: Math.random() < 0.5 ? '#ffe28a' : '#b6ffd2', g: 0.2, drag: 1.6 });
+    }
+  }
+}
+function heal() {
+  if (healing || healed) return;
+  healing = { t: 0, burst: false };
+  react = null; sigh = null;
+}
+function reset() {
+  healing = null; react = null; sigh = null; healed = false;
+  hTarget = 0; used.clear(); renderTools(); updateMeter();
+}
+
+/* ---------- the sugar cubes: on the plant, falling, or gone ---------- */
+function detach(c) {
+  world.attach(c.m);                          // keeps where it is in the world
+  const from = world.worldToLocal(headCentre());
+  const out = c.m.position.clone().sub(from).setY(0).normalize();
+  c.v.copy(out).multiplyScalar(rnd(0.5, 1.2) * burstBoost).add(new V3(0, rnd(0.6, 1.4) * Math.sqrt(burstBoost), 0));
+  c.w.set(rnd(-8, 8), rnd(-8, 8), rnd(-8, 8));
+  c.state = 'fall'; c.t = 0;
+  emit(worldPos(c.m), { life: 0.5, s0: 0.16, s1: 0, color: '#fff0f4' });
+}
+function reattach(c) {
+  c.home.add(c.m);
+  c.m.position.copy(c.pos); c.m.quaternion.copy(c.quat);
+  c.m.visible = true; c.state = 'on'; c.grow = 0;
+}
+const _e = new THREE.Euler();
+function stepCubes(dt) {
+  for (const c of cubes) {
+    const keep = hTarget < c.thr;
+    if (keep && c.state !== 'on') reattach(c);
+    else if (!keep && c.state === 'on') detach(c);
+    if (c.state === 'on') {
+      if (c.grow < 1) c.grow = Math.min(1, c.grow + dt * 3.5);
+      c.m.scale.setScalar(c.size * Math.max(1e-4, backOut(c.grow)));
+    } else if (c.state === 'fall') {
+      c.t += dt;
+      c.v.y -= 6.5 * dt;
+      c.m.position.addScaledVector(c.v, dt);
+      c.m.rotation.x += c.w.x * dt; c.m.rotation.y += c.w.y * dt; c.m.rotation.z += c.w.z * dt;
+      const r = Math.hypot(c.m.position.x, c.m.position.z);
+      const floor = (r < POT_R ? SOIL_Y : 0) + c.size * 0.5;
+      if (c.m.position.y < floor) {                    // land, bounce a little, slide to a stop
+        c.m.position.y = floor;
+        c.v.y = Math.abs(c.v.y) > 0.6 ? -c.v.y * 0.3 : 0;
+        c.v.x *= 0.55; c.v.z *= 0.55; c.w.multiplyScalar(0.5);
+      }
+      if (c.t > 1.5) {                                   // then dissolves, sugar into soil
+        const k = clamp((c.t - 1.5) / 0.6, 0, 1);
+        c.m.scale.setScalar(c.size * (1 - k) + 1e-4);
+        if (k >= 1) {
+          c.state = 'gone'; c.m.visible = false;
+          if (Math.random() < 0.6) emit(worldPos(c.m), { v: new V3(0, 0.25, 0), life: 0.6, s0: 0.1, s1: 0, color: '#ffe6ee', a: 0.8 });
+        }
+      }
+    }
+  }
+}
+
+/* =========================================================================
+   The frame
+   ========================================================================= */
+const E = { lid: 1, low: 0, brow: 0, browY: 0, smile: 0, open: 0, w: 0.1 };
+const OVER = { ...E };
+function blendInto(o, w) { for (const k in E) E[k] = lerp(E[k], o[k], w); }
+const hangQ = new THREE.Quaternion();
+const hangE = new THREE.Euler();
+
+function update(dt) {
+  t += dt;
+
+  /* ---------- the heal, a short timeline ---------- */
+  if (healing) {
+    const T = (healing.t += dt);
+    if (T < 0.6) {                                     // gather: holds its breath, glowing
+      bounce.target = 0.1; glow = sstep(0, 0.6, T);
+      if (Math.random() < dt * 90) {
+        const a = rnd(0, TAU), r = rnd(1.1, 1.5), c = headCentre();
+        const at = new V3(Math.cos(a) * r, rnd(0.2, 2.6), Math.sin(a) * r);
+        emit(at, { v: c.clone().sub(at).multiplyScalar(1.6), life: 0.55, s0: 0.05, s1: 0.12, color: Math.random() < 0.5 ? '#ffd6e4' : '#ffe9a0' });
+      }
+    } else if (!healing.burst) {                       // burst: the sugar flies off, the fruit shrinks
+      healing.burst = true;
+      bounce.target = 0; bounce.kick(-5); spin.kick(9); leafS.kick(5);
+      hTarget = 1; burstBoost = 2.2;
+      for (const c of clusters) c.swing.kick(rnd(-3, 3));
+      const c = headCentre();
+      for (let i = 0; i < 170; i++) {
+        emit(c, { v: randDir().multiplyScalar(rnd(1.2, 3.6)), life: rnd(1.1, 2.1), s0: rnd(0.08, 0.17), s1: 0.01, color: ['#ffe28a', '#b6ffd2', '#ffd1e6', '#ffffff'][i % 4], g: -1.0, drag: 1.5 });
+      }
+    } else {
+      burstBoost = 1;
+      glow = Math.max(0, 1 - (T - 0.6) / 1.6);
+      if (T > 3.6) {
+        healing = null; healed = true;
+        say('Just the right size!', 3200);
+        toast('Healing potion: insulin is preferred when meals and movement are not enough; metformin in selected cases.', 'good', 5200);
+        updateMeter();
+      }
+    }
+  }
+
+  /* ---------- springs ---------- */
+  hPose.target = hTarget; hCol.target = hTarget;
+  const hp = hPose.step(dt), h = clamp(hCol.step(dt), 0, 1);
+  leafS.target = hTarget; leafS.step(dt);
+  if (!healing) bounce.target = 0;
+  puff.step(dt); bounce.step(dt); shake.step(dt); spin.step(dt); turn.step(dt);
+
+  /* ---------- colour ---------- */
+  mixPal(skinMat.color, 'skin', h); lidMat.color.copy(skinMat.color);
+  mixPal(leafMat.color, 'leaf', h); mixPal(leafMat2.color, 'leaf2', h);
+  mixPal(stemMat.color, 'stem', h);
+  mixPal(runeMat.color, 'rune', h);
+  runeMat.opacity = 0.24 + 0.1 * Math.sin(t * 1.6) * MOTION + glow * 0.9;
+  skinU.uSugar.value = 1 - h;
+  // enough glow to read as magic, not so much the face washes out
+  skinMat.emissive.set('#ffc2d6').multiplyScalar(glow * 0.22);
+  healLight.intensity = glow * 6;
+
+  /* ---------- the fruit: swollen when cursed, shrinking as it heals ---------- */
+  const breathe = Math.sin(t * TAU * lerp(0.3, 0.5, h)) * lerp(0.028, 0.02, h) * MOTION;
+  let sighK = 0;
+  if (sigh) { sigh.t += dt; sighK = Math.sin(Math.PI * clamp(sigh.t / 2, 0, 1)); if (sigh.t > 2) sigh = null; }
+  const size = lerp(1, 0.66, clamp(hp, -0.1, 1.15)) * (1 + Math.max(-0.2, puff.x) * 0.12);
+  const sq = bounce.x;
+  swell.scale.set(size * (1 - breathe * 0.4 - sq * 0.45), size * (1 + breathe + sq - sighK * 0.04), size * (1 - breathe * 0.4 - sq * 0.45));
+  top.scale.setScalar(Math.pow(1 / size, 0.75));      // the leaves on top stay lush as it shrinks
+  neck.rotation.x = lerp(0.1, -0.02, h) + sighK * 0.12;
+  neck.rotation.z = shake.x * 0.04 + Math.sin(t * 0.9) * 0.03 * MOTION;
+  neck.rotation.y = spin.x * 0.06 + Math.sin(t * 0.55) * 0.05 * MOTION;
+  for (let i = 0; i < trunk.bones.length; i++) {
+    const b = trunk.bones[i];
+    b.rotation.x = lerp(0.03, 0, h) + (i ? 0.012 * Math.sin(t * 0.8 + i) * MOTION : 0);
+    b.rotation.z = Math.sin(t * 0.7 + i * 0.7) * 0.02 * MOTION;
+  }
+  for (const [i, tp] of tendrils.entries()) tp.rotation.x = Math.sin(t * 1.2 + i * 2) * 0.08 * MOTION;
+  for (const b of sprout.bones) b.rotation.z = Math.sin(t * 1.1) * 0.04 * MOTION;
+
+  /* ---------- branches: weighed down by sugar, lifting as it falls away ---------- */
+  for (const br of branches) {
+    br.s.target = hTarget;
+    const hb = br.s.step(dt);
+    const bones = br.L.bones;
+    // her branches arch out wide, so the sugar hangs clear of the pot
+    const el = lerp(50, 64, hb) * DEG;
+    bones[0].rotation.set(Math.PI / 2 - el, br.side * 80 * DEG, 0, 'YXZ');
+    for (let i = 1; i < bones.length; i++) {
+      const sway = Math.sin(t * 1.3 - i * 0.55 + br.ph) * 0.05 * MOTION;
+      bones[i].rotation.x = lerp(0.36, 0.27, hb) + sway * 0.4;
+      bones[i].rotation.z = sway;
+    }
+  }
+
+  /* ---------- leaves ---------- */
+  const lp = clamp(leafS.x, -0.2, 1.35);
+  for (const L of leaves) {
+    tmpV.copy(L.dirSick).lerp(L.dirWell, lp);
+    tmpV.x += Math.sin(t * L.f + L.ph) * 0.06 * MOTION;
+    tmpV.z += Math.cos(t * L.f * 0.8 + L.ph) * 0.04 * MOTION;
+    L.pivot.quaternion.setFromUnitVectors(UP, tmpV.normalize());
+    tmpQ.setFromAxisAngle(UP, L.roll + Math.sin(t * L.f * 1.3 + L.ph) * 0.1 * MOTION);
+    L.pivot.quaternion.multiply(tmpQ);
+  }
+
+  /* ---------- blossoms ---------- */
+  for (const b of blossoms) {
+    b.s.target = sstep(b.at - 0.08, b.at + 0.05, h);
+    b.f.scale.setScalar(Math.max(1e-4, b.s.step(dt)));
+    b.f.rotation.y = t * 0.2;
+  }
+  // sugar glints while cursed, pollen once healed
+  if (h < 0.85 && Math.random() < dt * 8 * (1 - h) * MOTION) {
+    const on = cubes.filter((c) => c.state === 'on');
+    if (on.length) emit(worldPos(on[Math.floor(Math.random() * on.length)].m).add(randDir().multiplyScalar(0.04)), { life: rnd(0.4, 0.8), s0: 0.12, s1: 0, color: '#fff2f6', a: 0.9 });
+  }
+  if (h > 0.9 && Math.random() < dt * 2 * MOTION) {
+    const a = rnd(0, TAU), r = rnd(0.5, 1.4);
+    emit(new V3(Math.cos(a) * r, rnd(0.8, 2.4), Math.sin(a) * r), { v: new V3(0, rnd(0.08, 0.2), 0), life: rnd(2.5, 4), s0: 0.06, s1: 0.03, color: '#ffe9a0', a: 0.7 });
+  }
+
+  /* ---------- expression: sad and sweet when cursed, bright when healed ---------- */
+  Object.assign(E, {
+    lid: lerp(0.8, 1, h), low: lerp(0.05, 0.28, h),
+    brow: lerp(0.5, -0.05, h), browY: lerp(0.0, 0.018, h),
+    smile: lerp(-0.6, 0.9, h), open: lerp(0, 0.3, h), w: lerp(0.075, 0.15, h),
+  });
+  if (sighK > 0) { Object.assign(OVER, { lid: 0.25, low: 0.1, brow: 0.6, browY: 0.01, smile: -0.7, open: 0.25, w: 0.08 }); blendInto(OVER, sighK); }
+  if (react) {
+    react.t += dt;
+    const w = sstep(0, 0.08, react.t) * (1 - sstep(react.dur - 0.38, react.dur, react.t));
+    if (react.type === 'wrong') Object.assign(OVER, { lid: react.t < 0.25 ? 0.05 : 0.7, low: 0.45, brow: 0.75, browY: 0.012, smile: -1, open: 0.45, w: 0.09 });
+    else Object.assign(OVER, { lid: 1, low: 0.65, brow: 0.12, browY: 0.035, smile: 1.1, open: 0.5, w: 0.15 });
+    blendInto(OVER, w);
+    if (!react.kicked) { react.kicked = true; for (const c of clusters) c.swing.kick(rnd(-2, 2)); }
+    if (react.t > react.dur) react = null;
+  }
+  if (healing) {
+    const T = healing.t;
+    if (T < 0.6) Object.assign(OVER, { lid: 0, low: 0.6, brow: 0.2, browY: 0.01, smile: 0.2, open: 0, w: 0.08 });
+    else Object.assign(OVER, { lid: 1, low: 0.6, brow: 0.15, browY: 0.035, smile: 1.2, open: 0.6, w: 0.17 });
+    blendInto(OVER, T < 0.6 ? sstep(0, 0.15, T) : 1 - sstep(2.6, 3.6, T));
+  }
+  nextBlink -= dt;
+  if (nextBlink <= 0) { blink = 1; nextBlink = rnd(2.2, 5); }
+  if (blink > 0) blink = Math.max(0, blink - dt / 0.2);
+  const blinkK = Math.sin(Math.PI * blink);
+  nextSigh -= dt;
+  if (nextSigh <= 0) { if (!react && !healing && hTarget < 0.5 && !REDUCE) sigh = { t: 0 }; nextSigh = rnd(7, 11); }
+
+  /* ---------- eyes ---------- */
+  nextLook -= dt;
+  if (nextLook <= 0) { wander = { x: rnd(-0.4, 0.4), y: rnd(-0.2, 0.25) }; nextLook = rnd(1.2, 3); }
+  const followPtr = t - pointer.t < 2.5;
+  let lx = followPtr ? pointer.x * 0.5 : wander.x;
+  let ly = followPtr ? -pointer.y * 0.4 : wander.y;
+  lx -= turn.x * 0.55;                                 // keeps watching you while turned
+  if (react && react.type === 'wrong') ly += 0.2;      // looks down, hurt
+  lookX.target = clamp(lx, -0.45, 0.45); lookY.target = clamp(ly, -0.35, 0.35);
+  lookX.step(dt); lookY.step(dt);
+  for (const e of eyes) {
+    const lid = clamp(E.lid * (1 - blinkK), 0, 1);
+    e.upper.rotation.x = lerp(1.56, -1.3, lid);
+    e.lower.rotation.x = lerp(1.46, 0.4, clamp(E.low, 0, 1));
+    e.look.rotation.set(lookY.x, lookX.x, 0);
+    e.browPivot.position.y = e.by + E.browY;
+    e.brow.rotation.set(0, 0, Math.PI / 2 - e.s * E.brow);
+  }
+  setMouth(E.w, E.smile, Math.max(0, E.open));
+
+  /* ---------- turntable ---------- */
+  if (!drag.on && t - drag.last > 2.5) turn.target = 0;
+  world.rotation.y = turn.x;
+
+  /* ---------- world matrices, then what hangs and what falls ---------- */
+  scene.updateMatrixWorld();
+  for (const c of clusters) {
+    c.swing.target = 0; c.swing.step(dt);
+    const a = Math.sin(t * 1.6 + c.sw) * 0.06 * MOTION + c.swing.x * 0.3;
+    hangQ.setFromEuler(hangE.set(a * 0.6, 0, a));
+    c.bone.getWorldQuaternion(tmpQ).invert();
+    c.c.quaternion.copy(tmpQ).multiply(hangQ);
+  }
+  scene.updateMatrixWorld();
+  stepCubes(dt);
+
+  healLight.position.copy(headCentre()).add(tmpV2.set(0, 0, 0.9));
+  stepParticles(dt);
+  placeBubble();
+}
+
+/* =========================================================================
+   Her speech bubble, pinned beside the fruit
+   ========================================================================= */
+const bubble = $('#bubble');
+let bubbleTimer = 0;
+function say(text, ms = 2800) {
+  bubble.textContent = text; bubble.dataset.on = 'true';
+  clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => (bubble.dataset.on = 'false'), ms);
+}
+function placeBubble() {
+  if (bubble.dataset.on !== 'true') return;
+  const p = headMesh.localToWorld(tmpV.set(0.85, 0.5, 0.2)).project(camera);
+  const w = stage.clientWidth, h = stage.clientHeight;
+  const x = clamp((p.x * 0.5 + 0.5) * w, 8, w - bubble.offsetWidth - 8);
+  const y = clamp((-p.y * 0.5 + 0.5) * h - bubble.offsetHeight, 8, h - bubble.offsetHeight - 8);
+  bubble.style.left = `${x}px`; bubble.style.top = `${y}px`;
+}
+
+/* =========================================================================
+   Sizing, input, loop
+   ========================================================================= */
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const halfV = Math.tan((camera.fov * DEG) / 2), halfH = halfV * camera.aspect;
+  const dist = Math.max(1.82 / halfV, 1.7 / halfH) * 1.04;
+  camera.position.set(0, 1.62 + dist * 0.16, dist);
+  camera.lookAt(0, 1.6, 0);
+  camera.updateProjectionMatrix();
+  pMat.uniforms.uPx.value = renderer.getDrawingBufferSize(new THREE.Vector2()).y / (2 * halfV);
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+canvas.addEventListener('pointerdown', (e) => { drag.on = true; drag.x = e.clientX; canvas.setPointerCapture(e.pointerId); canvas.classList.add('dragging'); });
+canvas.addEventListener('pointermove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1; pointer.y = -(((e.clientY - r.top) / r.height) * 2 - 1); pointer.t = t;
+  if (drag.on) { turn.target = clamp(turn.target + (e.clientX - drag.x) * 0.009, -1.2, 1.2); drag.x = e.clientX; drag.last = t; }
+});
+const endDrag = () => { drag.on = false; drag.last = t; canvas.classList.remove('dragging'); };
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+let last = performance.now(), fpsAvg = 60, statT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  update(dt);
+  renderer.info.reset();
+  effect.render(scene, camera);
+  fpsAvg = lerp(fpsAvg, 1 / Math.max(dt, 1e-3), 0.05);
+  if ((statT += dt) > 0.5) {
+    statT = 0;
+    $('#stats').textContent = `${fpsAvg.toFixed(0)} fps · ${renderer.info.render.calls} draws · ${(renderer.info.render.triangles / 1000).toFixed(1)}k tris`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setTimeout(() => { if (!healed && hTarget < 0.5) say('Too much sugar makes me grow!', 3200); }, 1200);
+
+/* =========================================================================
+   The garden-care shelf: her document's interventions, and two decoys
+   ========================================================================= */
+const TOOLS = [
+  { id: 'sap', ic: '🧪', name: 'Sugar-Sap Testing Kit', ok: true, why: 'Test the sweetness of the sap: monitor fasting and post-meal blood glucose.' },
+  { id: 'cool', ic: '🍃', name: 'Cooling Petal Compress', ok: false, why: 'That one soothes Mastitis: cold compresses for an inflamed breast.' },
+  { id: 'fert', ic: '🌾', name: 'Balanced Nutrient Fertilizer', ok: true, why: 'Measured nutrients, not extra sugar: individualized meal planning and carbohydrate distribution.' },
+  { id: 'sun', ic: '☀️', name: 'Sunlight Walking Path', ok: true, why: 'Movement and sunlight: safe physical activity as tolerated.' },
+  { id: 'dig', ic: '🚫', name: 'Do-Not-Dig Sign', ok: false, why: 'That one is for Placenta Previa: no digital exams until the placenta is located.' },
+  { id: 'scan', ic: '🔍', name: 'Fruit-Growth Scanner', ok: true, why: 'Is the fruit growing too large? Monitor fetal growth and arrange antenatal surveillance.' },
+];
+const RIGHT = TOOLS.filter((x) => x.ok).length;
+const used = new Set();
+const toolsEl = $('#tools');
+function renderTools() {
+  toolsEl.innerHTML = '';
+  for (const tl of TOOLS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tool'; b.title = tl.why;
+    b.innerHTML = `<span class="ic" aria-hidden="true">${tl.ic}</span><span>${tl.name}</span>`;
+    b.dataset.done = String(used.has(tl.id));
+    b.disabled = used.has(tl.id);
+    b.addEventListener('click', () => useTool(tl, b));
+    toolsEl.append(b);
+  }
+}
+function useTool(tl, b) {
+  if (healing || healed) return;
+  if (!tl.ok) {
+    doReact('wrong');
+    b.dataset.bad = 'false'; void b.offsetWidth; b.dataset.bad = 'true';
+    toast(tl.why, 'bad');
+    return;
+  }
+  used.add(tl.id);
+  b.dataset.done = 'true'; b.disabled = true;
+  toast(`${tl.name}: ${tl.why}`, 'good');
+  doReact('right');
+  if (used.size >= RIGHT) { hTarget = 0.75; setTimeout(heal, 650); }
+  else hTarget = used.size / RIGHT;
+  updateMeter();
+}
+function updateMeter() {
+  const v = healing || healed ? 1 : hTarget;
+  $('#bar').style.width = `${Math.round(v * 100)}%`;
+  $('#pct').textContent = `${Math.round(v * 100)}%`;
+  $('#health').value = Math.round(hTarget * 100);
+  $('#hval').textContent = `${Math.round(hTarget * 100)}%`;
+}
+let toastTimer = 0;
+function toast(msg, tone = '', ms = 3400) {
+  const el = $('#toast'); el.textContent = msg; el.dataset.tone = tone; el.dataset.on = 'true';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.dataset.on = 'false'), ms);
+}
+renderTools(); updateMeter();
+
+document.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => {
+  const a = b.dataset.act;
+  if (a === 'wrong') doReact('wrong');
+  if (a === 'right') doReact('right');
+  if (a === 'heal') { heal(); setTimeout(updateMeter, 700); }
+  if (a === 'reset') reset();
+}));
+$('#health').addEventListener('input', (e) => {
+  healing = null; healed = false;
+  hTarget = e.target.value / 100;
+  updateMeter();
+});
+
+/* A handle for testing from the console or a script. */
+window.__plant = {
+  setHealth: (v) => { healing = null; healed = false; hTarget = clamp(v, 0, 1); updateMeter(); },
+  react: doReact, heal, reset,
+  state: () => ({ hTarget, hPose: hPose.x, healing: !!healing, healed, react: react?.type ?? null, cubesOn: cubes.filter((c) => c.state === 'on').length, cubes: cubes.length }),
+  stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }),
+  /** Advance at a fixed 60 Hz and draw once: for checking states while the
+      browser is throttling animation frames. */
+  step: (sec = 1) => {
+    const n = Math.round(sec * 60);
+    for (let i = 0; i < n; i++) update(1 / 60);
+    renderer.info.reset(); effect.render(scene, camera);
+    return n;
+  },
+};
+</script>
+</body>
+</html>

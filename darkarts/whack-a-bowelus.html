@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Whack-a-Bowelus</title>
+<meta name="description" content="Med-Surg: Dark Arts, 3D test: the Irritable Bowel Syndrome monster, Whack-a-Bowelus, built from the client's artwork and animated in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Macondo+Swash+Caps&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+:root {
+  --gold: #d9a441; --gold-lit: #f4d98b; --gold-dim: #8a5f22;
+  --bronze: #2a1d16; --bronze-lit: #4a3424;
+  --parch: #f4e7c6; --parch-dark: #e2d0a6; --ink: #2b2036;
+  --cyan: #4fe3d0; --violet: #b68cff; --corrupt: #b0347a; --human: #7ad6a8; --red: #f2536b;
+  --note: #655a45; --kicker: #7a531d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: #0d0a14; color: var(--parch); font-family: "Cormorant Garamond", Georgia, serif; font-size: 17px; -webkit-font-smoothing: antialiased; }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 380px; height: 100dvh; }
+.stage { position: relative; overflow: hidden; min-height: 0; background: #120d14 url('background1.webp') center 78% / cover no-repeat; }
+.stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 95% at 50% 55%, transparent 50%, rgb(8 5 12 / 62%) 100%); }
+#c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; z-index: 1; }
+#c.dragging { cursor: grabbing; }
+.flash { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 55%, #f0fffd 0%, rgb(79 227 208 / 85%) 35%, rgb(79 227 208 / 0%) 75%); }
+.flash[data-tone='curse'] { background: radial-gradient(circle at 50% 55%, #ffe6f6 0%, rgb(176 52 122 / 85%) 35%, rgb(176 52 122 / 0%) 75%); }
+.title { position: absolute; left: 26px; top: 20px; z-index: 3; pointer-events: none; max-width: 62%; }
+.kicker { font: 700 12px/1.3 "Cormorant Garamond", serif; letter-spacing: .22em; text-transform: uppercase; color: #c9a45c; }
+h1 { font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400; font-size: clamp(28px, 3.4vw, 44px); line-height: 1.05; margin: 6px 0 4px; color: var(--gold-lit); text-shadow: 0 2px 0 rgb(0 0 0 / 55%), 0 0 24px rgb(244 217 139 / 18%); }
+.sub { font-style: italic; font-size: 18px; color: #e6d6ef; text-shadow: 0 1px 2px rgb(0 0 0 / 70%); }
+.hint { position: absolute; left: 26px; bottom: 18px; z-index: 3; pointer-events: none; font-size: 15px; color: rgb(230 214 239 / 80%); text-shadow: 0 1px 2px rgb(0 0 0 / 80%); }
+.stats { position: absolute; right: 14px; bottom: 14px; z-index: 3; pointer-events: none; font: 12px/1.4 ui-monospace, Consolas, monospace; color: rgb(230 214 239 / 55%); }
+.toast {
+  position: absolute; left: 50%; bottom: 52px; transform: translate(-50%, 12px); z-index: 4;
+  max-width: min(560px, calc(100% - 32px)); padding: 10px 18px; border-radius: 14px;
+  background: rgb(26 18 13 / 90%); border: 1px solid rgb(217 164 65 / 55%);
+  color: var(--parch); font-size: 17px; text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
+}
+.toast[data-on='true'] { opacity: 1; transform: translate(-50%, 0); }
+.toast[data-tone='good'] { border-color: rgb(79 227 208 / 75%); }
+.toast[data-tone='bad'] { border-color: rgb(242 83 107 / 75%); }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; font-size: 19px; z-index: 5; }
+.panel { background: linear-gradient(180deg, #2a1d16, #1a120d); border-left: 1px solid rgb(217 164 65 / 35%); padding: 18px 16px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--parch); color: var(--ink); border-radius: 16px; padding: 14px; box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%), 0 8px 22px rgb(0 0 0 / 35%); }
+.k { font: 700 12px/1.3 "Cormorant Garamond", serif; letter-spacing: .18em; text-transform: uppercase; color: var(--kicker); }
+.cast {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 18px 12px 14px; border-radius: 999px;
+  border: 1px solid rgb(217 164 65 / 60%); cursor: pointer; text-align: left;
+  background: linear-gradient(#4a3424, #2a1d16); color: var(--gold-lit);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%), 0 0 0 3px rgb(13 11 22 / 60%);
+  font-family: "Macondo Swash Caps", Georgia, serif;
+}
+.cast .stone { width: 22px; height: 22px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 30%, #fff, var(--violet) 45%, #4a2a6a); box-shadow: 0 0 12px var(--violet); }
+.cast .kick { display: block; font: 700 11px/1.2 "Cormorant Garamond", serif; letter-spacing: .16em; text-transform: uppercase; color: rgb(244 217 139 / 72%); }
+.cast .name { display: block; font-size: 21px; }
+.cast:disabled { cursor: default; }
+.cast[data-busy='true'] .stone { animation: breathe .9s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.25); filter: brightness(1.5); } }
+.gauge .row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.gauge .row .c { color: var(--corrupt); } .gauge .row .h { color: #2f8a62; }
+.bar { position: relative; height: 12px; border-radius: 99px; background: linear-gradient(90deg, var(--corrupt), #6a2a5a); box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%); overflow: hidden; margin-top: 6px; }
+.bar i { position: absolute; right: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #4fe3d0, var(--human)); transition: width .45s; }
+.tray { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 7px; border-radius: 12px;
+  border: 1px solid rgb(138 95 34 / 55%); background: linear-gradient(#3a2a20, #241811); color: var(--parch);
+  font: 700 13px/1.1 "Cormorant Garamond", serif; text-align: center; cursor: pointer; transition: transform .12s, opacity .2s, box-shadow .12s;
+}
+.item img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 50%)); }
+.item:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 14px rgb(0 0 0 / 40%); }
+.item:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.item:disabled { cursor: default; }
+.item[data-done='true'] { opacity: .45; border-color: rgb(79 227 208 / 70%); }
+.item[data-bad='true'] { animation: nope .42s; border-color: var(--red); }
+@keyframes nope { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+details { font-size: 16px; }
+details summary { cursor: pointer; font-weight: 700; color: #4a2a1a; }
+details ul { margin: 8px 0 0; padding-left: 18px; color: var(--note); line-height: 1.35; }
+.ref { display: block; width: 100%; max-width: 280px; margin: 10px auto 0; border-radius: 10px; background: #2a2230; }
+.dev { background: rgb(0 0 0 / 22%); border: 1px solid rgb(217 164 65 / 30%); border-radius: 16px; padding: 14px; }
+.dev .k { color: #c9a45c; }
+.dev h2 { color: var(--gold-lit); font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400; font-size: 22px; margin: 0; }
+.dev .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.dev button { padding: 9px 10px; border-radius: 99px; border: 1px solid rgb(217 164 65 / 60%); background: linear-gradient(#4a3424, #2a1d16); color: var(--gold-lit); font: 700 15px/1 "Cormorant Garamond", serif; cursor: pointer; }
+.dev button:hover { border-color: var(--gold-lit); }
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 64dvh auto; height: auto; }
+  .panel { border-left: 0; border-top: 1px solid rgb(217 164 65 / 35%); }
+  .title { left: 16px; top: 14px; max-width: 90%; }
+  .hint { left: 16px; bottom: 10px; font-size: 14px; }
+  .stats { display: none; }
+  .toast { font-size: 15px; padding: 8px 12px; bottom: 38px; }
+}
+@media (prefers-reduced-motion: reduce) { .item, .toast, .bar i { transition: none; } .item[data-bad='true'] { animation: none; } .cast[data-busy='true'] .stone { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="stage" id="stage">
+    <canvas id="c" aria-label="Whack-a-Bowelus, the Irritable Bowel Syndrome monster, animated in 3D"></canvas>
+    <div class="flash" id="flash"></div>
+    <div class="title">
+      <div class="kicker">Med-Surg: Dark Arts · 3D test</div>
+      <h1>Irritable Bowel Syndrome</h1>
+      <div class="sub">Altered bowel movement and sensitivity.</div>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="hint" id="hint">Cast the curse to see what ails them.</div>
+    <div class="stats" id="stats"></div>
+  </main>
+
+  <aside class="panel">
+    <button type="button" class="cast" id="cast">
+      <span class="stone" aria-hidden="true"></span>
+      <span><span class="kick">✦ Cast the curse</span><span class="name">Whack-a-Bowelus</span></span>
+    </button>
+
+    <section class="card">
+      <div class="gauge">
+        <div class="row"><span class="c">Corrupted <b id="cpct">100%</b></span><span class="h"><b id="hpct">0%</b> Human</span></div>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
+      <div class="k" style="margin-top:14px">Nursing interventions</div>
+      <div class="tray" id="tray"></div>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary>How this one behaves</summary>
+        <ul>
+          <li>Cursed, it boxes: up on its toes, guard up, throwing jabs, and its spilled gut swings with every move.</li>
+          <li>Every so often the IBS gets it: it doubles over cramping and bloats up.</li>
+          <li>A wrong card and it taunts you with a flurry of punches.</li>
+          <li>A right card lands like a punch: it staggers, buttons spinning, stuffing flying. It stays a monster.</li>
+          <li>The last right card breaks the curse all at once.</li>
+        </ul>
+      </details>
+    </section>
+
+
+    <section class="dev">
+      <div class="k">Test controls</div>
+      <h2>Animation states</h2>
+      <div class="btns">
+        <button type="button" data-act="growl">Wrong card</button>
+        <button type="button" data-act="hit">Right card</button>
+        <button type="button" data-act="cramp">IBS flare</button>
+        <button type="button" data-act="cure">Cure now</button>
+        <button type="button" data-act="reset">Back to human</button>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* =========================================================================
+   Helpers
+   ========================================================================= */
+const $ = (s) => document.querySelector(s);
+const V3 = THREE.Vector3;
+const UP = new V3(0, 1, 0);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const TAU = Math.PI * 2;
+const DEG = Math.PI / 180;
+function rng(seed) {
+  return () => {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const R = rng(1);
+const rr = (a, b) => a + (b - a) * R();
+const rnd = (a, b) => a + (b - a) * Math.random();
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MOTION = REDUCE ? 0.35 : 1;
+class Spring {
+  constructor(k, d, x = 0) { this.k = k; this.d = d; this.x = x; this.v = 0; this.target = x; }
+  step(dt) {
+    const n = Math.max(1, Math.ceil(dt * 240)), h = dt / n;
+    for (let i = 0; i < n; i++) { this.v += (this.k * (this.target - this.x) - this.d * this.v) * h; this.x += this.v * h; }
+    return this.x;
+  }
+  kick(v) { this.v += v; }
+  set(x) { this.x = this.target = x; this.v = 0; }
+}
+const tmp = new V3(), tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion();
+
+/* =========================================================================
+   Renderer: physically based, like the DJ. Her doll is painted as real
+   burlap and real leather, so the materials catch real light.
+   ========================================================================= */
+const stage = $('#stage');
+const canvas = $('#c');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+} catch (err) {
+  const msg = document.createElement('div'); msg.className = 'nogl';
+  msg.textContent = 'This test needs WebGL, which this browser has turned off. Try current Chrome, Edge, Safari or Firefox.';
+  stage.append(msg); throw err;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.info.autoReset = false;
+const EDGE = new THREE.Color('#1c0f08');
+const effect = new OutlineEffect(renderer, { defaultThickness: 0.0024, defaultColor: EDGE.toArray(), defaultAlpha: 0.9 });
+const edge = (m, thickness = 0.0024) => { m.userData.outlineParameters = { thickness, color: EDGE.toArray(), alpha: 0.9, visible: true, keepAlive: true }; return m; };
+const noEdge = (m) => { m.userData.outlineParameters = { visible: false }; return m; };
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 60);
+const world = new THREE.Group(); scene.add(world);
+scene.add(new THREE.HemisphereLight('#ffe2c4', '#24140f', 0.6));
+const key = new THREE.DirectionalLight('#ffcf9a', 2.6);
+key.position.set(-3.4, 5.2, 4.2); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+Object.assign(key.shadow.camera, { left: -2.5, right: 2.5, top: 3, bottom: -1, near: 1, far: 16 });
+key.shadow.bias = -0.0005; key.shadow.normalBias = 0.02;
+scene.add(key);
+const rim = new THREE.DirectionalLight('#a6d8ff', 2.1); rim.position.set(3.2, 3.4, -4); scene.add(rim);
+const fill = new THREE.DirectionalLight('#c8b0ff', 0.55); fill.position.set(3, 1.2, 3.5); scene.add(fill);
+const magic = new THREE.PointLight('#4fe3d0', 0, 6, 1.5); magic.position.set(0, 0.6, 1); scene.add(magic);
+
+/* =========================================================================
+   Textures
+   ========================================================================= */
+function canvasTex(w, h, draw, { srgb = true, repeat = false } = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+/* Burlap: a coarse over-under weave, near white so the doll's two tones come
+   from the vertex colours, with grime and a few loose fibres. One canvas for
+   colour, one for the bump. */
+function drawBurlap(x, w, h, forBump) {
+  const r = rng(7), N = 64, cell = w / N;
+  x.fillStyle = forBump ? '#404040' : '#e9e4da'; x.fillRect(0, 0, w, h);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const over = (i + j) % 2 === 0, v = 0.82 + r() * 0.18;
+    const c = Math.round((forBump ? (over ? 210 : 140) : 255) * v);
+    x.fillStyle = forBump ? `rgb(${c},${c},${c})` : `rgb(${c},${Math.round(c * 0.97)},${Math.round(c * 0.92)})`;
+    if (over) x.fillRect(i * cell + 1, j * cell + cell * 0.12, cell - 2, cell * 0.76);
+    else x.fillRect(i * cell + cell * 0.12, j * cell + 1, cell * 0.76, cell - 2);
+  }
+  if (!forBump) {
+    for (let i = 0; i < 90; i++) {
+      const gx = r() * w, gy = r() * h, rad = 10 + r() * 50;
+      const g = x.createRadialGradient(gx, gy, 0, gx, gy, rad);
+      g.addColorStop(0, `rgba(90,60,30,${0.08 + r() * 0.14})`); g.addColorStop(1, 'rgba(90,60,30,0)');
+      x.fillStyle = g; x.fillRect(gx - rad, gy - rad, rad * 2, rad * 2);
+    }
+    x.strokeStyle = 'rgba(255,248,230,.5)'; x.lineWidth = 1;
+    for (let i = 0; i < 70; i++) { const gx = r() * w, gy = r() * h; x.beginPath(); x.moveTo(gx, gy); x.quadraticCurveTo(gx + r() * 12 - 6, gy + 6, gx + r() * 20 - 10, gy + 14); x.stroke(); }
+  }
+}
+const burlapMap = canvasTex(512, 512, (x, w, h) => drawBurlap(x, w, h, false), { repeat: true });
+const burlapBump = canvasTex(512, 512, (x, w, h) => drawBurlap(x, w, h, true), { srgb: false, repeat: true });
+for (const t of [burlapMap, burlapBump]) t.repeat.set(5, 5);
+/* the torn hole in the belly: dark inside, with a ragged, fibrous edge */
+const tearTex = canvasTex(256, 256, (x, w, h) => {
+  const r = rng(3); x.clearRect(0, 0, w, h);
+  const pts = [];
+  for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; const rad = 0.3 + r() * 0.14 + (i % 3 === 0 ? 0.06 : 0); pts.push([w / 2 + Math.cos(a) * rad * w * 0.78, h / 2 + Math.sin(a) * rad * h]); }
+  x.beginPath(); pts.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py))); x.closePath();
+  const g = x.createRadialGradient(w / 2, h / 2, 6, w / 2, h / 2, w * 0.4);
+  g.addColorStop(0, '#120604'); g.addColorStop(0.7, '#2a0e08'); g.addColorStop(1, '#4a2410');
+  x.fillStyle = g; x.fill();
+  x.strokeStyle = 'rgba(200,170,120,.85)'; x.lineWidth = 1.4;
+  for (const [px, py] of pts) for (let k = 0; k < 3; k++) {
+    const a = Math.atan2(py - h / 2, px - w / 2) + (r() - 0.5) * 0.8, l = 6 + r() * 12;
+    x.beginPath(); x.moveTo(px, py); x.lineTo(px - Math.cos(a) * l, py - Math.sin(a) * l); x.stroke();
+  }
+});
+const sparkTex = canvasTex(64, 64, (x) => {
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 30);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.25, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 2; x.lineCap = 'round';
+  x.beginPath(); x.moveTo(32, 3); x.lineTo(32, 61); x.moveTo(3, 32); x.lineTo(61, 32); x.stroke();
+}, { srgb: false });
+const fluffTex = canvasTex(64, 64, (x) => {           // a tuft of stuffing
+  const r = rng(11);
+  for (let i = 0; i < 14; i++) {
+    const g = x.createRadialGradient(20 + r() * 24, 20 + r() * 24, 0, 32, 32, 14 + r() * 8);
+    g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  }
+}, { srgb: false });
+
+/* =========================================================================
+   Materials
+   ========================================================================= */
+const burlap = edge(new THREE.MeshStandardMaterial({ color: '#ffffff', map: burlapMap, bumpMap: burlapBump, bumpScale: 2.5, roughness: 0.96, vertexColors: true, envMapIntensity: 0.35 }), 0.0024);
+const patchMat = (c) => noEdge(new THREE.MeshStandardMaterial({ color: c, map: burlapMap, bumpMap: burlapBump, bumpScale: 2.5, roughness: 0.96, envMapIntensity: 0.35, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+const leather = edge(new THREE.MeshPhysicalMaterial({ color: '#6e2a1c', roughness: 0.42, clearcoat: 0.55, clearcoatRoughness: 0.35, envMapIntensity: 0.7 }), 0.0026);
+const leatherDark = edge(new THREE.MeshPhysicalMaterial({ color: '#4a1c14', roughness: 0.5, clearcoat: 0.4 }), 0.002);
+const trimMat = noEdge(new THREE.MeshStandardMaterial({ color: '#b98a5c', roughness: 0.7 }));
+const threadMat = noEdge(new THREE.MeshStandardMaterial({ color: '#4a2412', roughness: 0.9 }));
+const yarnMat = noEdge(new THREE.MeshStandardMaterial({ color: '#dccfae', roughness: 0.92, envMapIntensity: 0.3 }));
+const buttonDark = edge(new THREE.MeshPhysicalMaterial({ color: '#5c6068', roughness: 0.3, clearcoat: 0.8, metalness: 0.1 }), 0.0016);
+const buttonLight = edge(new THREE.MeshPhysicalMaterial({ color: '#8e98a4', roughness: 0.3, clearcoat: 0.8, metalness: 0.1 }), 0.0016);
+const holeMat = noEdge(new THREE.MeshBasicMaterial({ color: '#1a1a1e' }));
+const gutMat = noEdge(new THREE.MeshPhysicalMaterial({ color: '#c24f5a', roughness: 0.32, clearcoat: 0.75, clearcoatRoughness: 0.2, side: THREE.DoubleSide, envMapIntensity: 0.6 }));
+const tearMat = noEdge(new THREE.MeshBasicMaterial({ map: tearTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6, toneMapped: false }));
+const stuffMat = noEdge(new THREE.MeshStandardMaterial({ color: '#efe6d2', roughness: 1 }));
+
+/* Her doll is two-toned: a pale left half, a tan right half, sewn together
+   down the middle. Painted as vertex colours under the burlap weave. */
+const PALE = new THREE.Color('#d9c39a'), TAN = new THREE.Color('#c18a48');
+function tint(geo, fn) {
+  const p = geo.attributes.position, c = new Float32Array(p.count * 3), col = new THREE.Color();
+  for (let i = 0; i < p.count; i++) { fn(col, p.getX(i), p.getY(i), p.getZ(i)); c.set([col.r, col.g, col.b], i * 3); }
+  geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  return geo;
+}
+const twoTone = (col, x, y, z) => {
+  col.copy(PALE).lerp(TAN, sstep(-0.035, 0.035, x));
+  const n = 1 + 0.06 * Math.sin(x * 21 + y * 13) * Math.sin(z * 17 - y * 9);
+  col.multiplyScalar(n);
+};
+
+/* =========================================================================
+   Geometry builders
+   ========================================================================= */
+function limb({ len, r0, r1, bones: nb, mat, color }) {
+  const geo = new THREE.CylinderGeometry(r1, r0, len, 16, nb * 8, false);
+  geo.translate(0, len / 2, 0);
+  { const p = geo.attributes.position;      // soft cloth wrinkles, not lumps
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i), x = p.getX(i), z = p.getZ(i), a = Math.atan2(z, x);
+      const k = 1 + 0.035 * Math.sin(y * 22 + a * 2) + 0.025 * Math.sin(y * 9 - a * 3);
+      p.setX(i, x * k); p.setZ(i, z * k);
+    }
+    geo.computeVertexNormals(); }
+  tint(geo, (c) => c.copy(color));
+  const p = geo.attributes.position, seg = len / nb, si = [], sw = [];
+  for (let i = 0; i < p.count; i++) {
+    const f = clamp(p.getY(i) / seg, 0, nb - 1e-4), b = Math.floor(f), t = f - b;
+    si.push(b, Math.min(b + 1, nb - 1), 0, 0); sw.push(1 - t, t, 0, 0);
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  const bones = [];
+  for (let i = 0; i < nb; i++) { const b = new THREE.Bone(); b.position.y = i ? seg : 0; if (i) bones[i - 1].add(b); bones.push(b); }
+  const mesh = new THREE.SkinnedMesh(geo, mat);
+  mesh.add(bones[0]); mesh.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
+  mesh.frustumCulled = false; mesh.castShadow = true;
+  return { mesh, bones, seg, nb };
+}
+function solveChain(st, D, H, n, s) {
+  let { a, c } = st;
+  for (let it = 0; it < 10; it++) {
+    let x = 0, y = 0, xa = 0, ya = 0, xc = 0, yc = 0;
+    for (let i = 0; i < n; i++) { const th = a - i * c, co = Math.cos(th), si = Math.sin(th); x += s * co; y += s * si; xa -= s * si; ya += s * co; xc += s * i * si; yc -= s * i * co; }
+    const ex = D - x, ey = H - y;
+    if (ex * ex + ey * ey < 1e-9) break;
+    const det = xa * yc - xc * ya; if (Math.abs(det) < 1e-6) break;
+    let da = (yc * ex - xc * ey) / det, dc = (-ya * ex + xa * ey) / det;
+    const m = Math.max(Math.abs(da), Math.abs(dc)); if (m > 0.3) { da *= 0.3 / m; dc *= 0.3 / m; }
+    a = clamp(a + da, -1.55, 1.55); c = clamp(c + dc, -0.6, 1.2);
+  }
+  st.a = a; st.c = c;
+  let x = 0, y = 0;
+  for (let i = 0; i < n; i++) { x += s * Math.cos(a - i * c); y += s * Math.sin(a - i * c); }
+  return Math.hypot(D - x, H - y);
+}
+function reach(st, rest, D, H, n, s) {
+  if (solveChain(st, D, H, n, s) > 0.02) { st.a = rest.a; st.c = rest.c; solveChain(st, D, H, n, s); }
+}
+/** A tube whose path is rewritten every frame: the gut hanging from the tear. */
+function dynTube(rings, radial, mat) {
+  const n = rings * (radial + 1);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const idx = [];
+  for (let j = 0; j < rings - 1; j++) for (let i = 0; i < radial; i++) { const a = j * (radial + 1) + i, b = a + radial + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  g.setIndex(idx);
+  const m = new THREE.Mesh(g, mat); m.frustumCulled = false; m.castShadow = true;
+  return { m, g, rings, radial };
+}
+const _t = new V3(), _n = new V3(), _b = new V3(), _d = new V3();
+function frames(pts, out) {        // tangent and a parallel-transported normal along a path
+  let n = null;
+  for (let j = 0; j < pts.length; j++) {
+    const a = pts[Math.max(0, j - 1)], b = pts[Math.min(pts.length - 1, j + 1)];
+    const t = b.clone().sub(a).normalize();
+    if (!n) { n = new V3(1, 0, 0); if (Math.abs(n.dot(t)) > 0.9) n.set(0, 0, 1); }
+    n = n.clone().addScaledVector(t, -n.dot(t)).normalize();
+    out[j] = { t, n, b: t.clone().cross(n) };
+  }
+  return out;
+}
+function writeTube(T, pts, r0, r1) {
+  const F = frames(pts, []), pos = T.g.attributes.position, nor = T.g.attributes.normal;
+  for (let j = 0; j < T.rings; j++) {
+    const { n, b } = F[j], r = lerp(r0, r1, j / (T.rings - 1));
+    for (let i = 0; i <= T.radial; i++) {
+      const a = i / T.radial * TAU;
+      _d.copy(n).multiplyScalar(Math.cos(a)).addScaledVector(b, Math.sin(a));
+      const k = j * (T.radial + 1) + i;
+      pos.setXYZ(k, pts[j].x + _d.x * r, pts[j].y + _d.y * r, pts[j].z + _d.z * r); nor.setXYZ(k, _d.x, _d.y, _d.z);
+    }
+  }
+  pos.needsUpdate = true; nor.needsUpdate = true;
+}
+
+/* =========================================================================
+   The monster
+   ========================================================================= */
+const monster = new THREE.Group(); world.add(monster);
+const body = new THREE.Group(); monster.add(body);            // torso and head: bounces, weaves, doubles over
+const torsoPivot = new THREE.Group(); torsoPivot.position.y = 1.2; body.add(torsoPivot);   // bloats about the belly
+const ray = new THREE.Raycaster();
+
+/* ---------- the torso: a stuffed sack ---------- */
+const torsoGeo = (() => {
+  const prof = new THREE.SplineCurve([[0, 0.86], [0.2, 0.87], [0.31, 0.92], [0.375, 1.02], [0.4, 1.14], [0.4, 1.28], [0.385, 1.4], [0.36, 1.5], [0.3, 1.59], [0.19, 1.65], [0.12, 1.69], [0, 1.7]]
+    .map(([r, y]) => new THREE.Vector2(r, y))).getPoints(60);
+  prof[0].x = 0; prof[prof.length - 1].x = 0;
+  const g = new THREE.LatheGeometry(prof, 72);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i) * 0.8;
+    const w = 1 + 0.02 * Math.sin(y * 31 + x * 7) * Math.sin(Math.atan2(z, x) * 5);   // stuffing pressing out unevenly
+    p.setXYZ(i, x * w, y - 1.2, z * w);
+  }
+  g.computeVertexNormals();
+  return tint(g, twoTone);
+})();
+const torso = new THREE.Mesh(torsoGeo, burlap); torso.castShadow = true; torsoPivot.add(torso);
+
+/* ---------- the head: a rounder sack on top ---------- */
+const HEAD = { y: 1.95, a: 0.3, b: 0.34, c: 0.28 };
+const headPivot = new THREE.Group(); headPivot.position.y = 1.66; body.add(headPivot);   // nods and snaps back from the neck
+const headGeo = (() => {
+  const g = new THREE.SphereGeometry(1, 56, 40), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const w = (1 + 0.03 * Math.sin(x * 11 + y * 7) * Math.sin(z * 9)) * (1 + 0.06 * sstep(-0.2, -1, y));   // a little fuller at the jaw
+    p.setXYZ(i, x * HEAD.a * w, y * HEAD.b + (HEAD.y - 1.66), z * HEAD.c * w);
+  }
+  g.computeVertexNormals();
+  return tint(g, twoTone);
+})();
+const headMesh = new THREE.Mesh(headGeo, burlap); headMesh.castShadow = true; headPivot.add(headMesh);
+
+/* ---------- seams, stitches and patches: projected onto the real surface ---------- */
+body.updateMatrixWorld(true);
+/** Where a point near the cloth actually lands on it: a ray from outside toward the body's axis. */
+function onSurface(mesh, near) {
+  const axis = new V3(0, near.y, 0), dir = axis.clone().sub(near).setY(0).normalize();
+  if (!isFinite(dir.x)) return null;
+  ray.set(near.clone().addScaledVector(dir, -0.6), dir);
+  const hit = ray.intersectObject(mesh, false)[0];
+  if (!hit) return null;
+  return { p: hit.point.clone(), n: hit.face.normal.clone().transformDirection(mesh.matrixWorld) };
+}
+const toLocal = (obj, v) => obj.worldToLocal(v.clone());
+/** A sewn seam: a thread line and a row of cross stitches, merged into one draw. */
+function seam(mesh, points, { every = 0.05, size = 0.04 } = {}) {
+  const curve = new THREE.CatmullRomCurve3(points), L = curve.getLength(), n = Math.max(2, Math.round(L / every));
+  const parts = [], line = [];
+  for (let i = 0; i <= n; i++) {
+    const s = onSurface(mesh, curve.getPointAt(i / n)); if (!s) continue;
+    const p = toLocal(mesh.parent, s.p), nn = s.n.clone();
+    line.push(p.clone().addScaledVector(nn, 0.004));
+    if (i === 0 || i === n) continue;
+    const t = curve.getTangentAt(i / n), b = t.clone().cross(nn).normalize(), tt = nn.clone().cross(b).normalize();
+    for (const sg of [-1, 1]) {
+      const dir = tt.clone().multiplyScalar(0.7071).addScaledVector(b, sg * 0.7071);
+      const m = new THREE.Matrix4().makeBasis(dir, nn, dir.clone().cross(nn)).setPosition(p.clone().addScaledVector(nn, 0.007));
+      parts.push(new THREE.BoxGeometry(size, 0.009, 0.009).applyMatrix4(m));
+    }
+  }
+  if (line.length > 1) parts.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(line), line.length * 3, 0.0045, 5));
+  const merged = mergeGeometries(parts.map((g) => g.toNonIndexed()));
+  const m = new THREE.Mesh(merged, threadMat); mesh.parent.add(m); return m;
+}
+/** A square patch laid on the cloth, with its border stitched down. */
+function patch(mesh, centre, size, color, rot = 0) {
+  const s = onSurface(mesh, centre); if (!s) return;
+  const n = s.n, t = new V3(0, 1, 0).addScaledVector(n, -n.y).normalize(), b = t.clone().cross(n).normalize();
+  const tr = t.clone().applyAxisAngle(n, rot), br = b.clone().applyAxisAngle(n, rot);
+  const g = new THREE.PlaneGeometry(size, size, 6, 6), p = g.attributes.position, border = [];
+  for (let i = 0; i < p.count; i++) {
+    const at = s.p.clone().addScaledVector(br, p.getX(i)).addScaledVector(tr, p.getY(i)).addScaledVector(n, 0.15);
+    const hit = onSurface(mesh, at) ?? { p: at, n };
+    const q = toLocal(mesh.parent, hit.p.addScaledVector(hit.n, 0.003)); p.setXYZ(i, q.x, q.y, q.z);
+  }
+  g.computeVertexNormals();
+  mesh.parent.add(new THREE.Mesh(g, patchMat(color)));
+  const h = size / 2 - 0.012;
+  for (const [x, y] of [[-h, -h], [h, -h], [h, h], [-h, h], [-h, -h]]) border.push(s.p.clone().addScaledVector(br, x).addScaledVector(tr, y).addScaledVector(n, 0.05));
+  seam(mesh, border, { every: 0.04, size: 0.03 });
+}
+// her seams: down the middle of the face and body, round the neck, down the pale side
+const W = (x, y, z) => new V3(x, y, z);
+seam(headMesh, [W(0, 2.3, 0.2), W(0, 2.18, 0.4), W(0, 2.06, 0.4)]);
+seam(headMesh, [W(0, 1.84, 0.4), W(0, 1.72, 0.4), W(0, 1.66, 0.3)]);
+seam(headMesh, Array.from({ length: 19 }, (_, i) => { const a = i / 18 * TAU; return W(Math.sin(a) * 0.4, 1.7, Math.cos(a) * 0.4); }), { every: 0.055 });
+seam(torso, [W(0, 1.66, 0.5), W(0, 1.4, 0.5), W(0, 1.1, 0.5), W(0, 0.9, 0.4)]);
+seam(torso, [W(-0.4, 1.58, 0.15), W(-0.42, 1.3, 0.2), W(-0.42, 1.0, 0.2)]);
+seam(torso, [W(0.3, 1.6, 0.3), W(0.36, 1.45, 0.42)]);
+patch(torso, W(-0.2, 1.3, 0.6), 0.17, '#bba989', 0.08);      // the grey-beige chest patch
+patch(torso, W(0.38, 1.18, 0.15), 0.15, '#8f6a74', -0.1);    // the mauve one on the tan side
+patch(headMesh, W(0.24, 2.0, 0.2), 0.12, '#9a4a38', 0.15);  // the red one on the side of the head
+
+/* ---------- the face: button eyes, a mouth sewn shut ---------- */
+const surfZ = (x, y) => HEAD.c * Math.sqrt(Math.max(1e-4, 1 - (x / HEAD.a) ** 2 - ((y - HEAD.y) / HEAD.b) ** 2));
+const surfN = (x, y) => new V3(x / HEAD.a ** 2, (y - HEAD.y) / HEAD.b ** 2, surfZ(x, y) / HEAD.c ** 2).normalize();
+const face = new THREE.Group(); face.position.y = -1.66; headPivot.add(face);    // face coordinates are body heights
+const buttons = [];
+for (const [x, mat, r] of [[-0.105, buttonDark, 0.062], [0.11, buttonLight, 0.056]]) {
+  const y = 2.0, g = new THREE.Group();
+  g.position.set(x, y, surfZ(x, y) + 0.012); g.quaternion.setFromUnitVectors(new V3(0, 0, 1), surfN(x, y)); face.add(g);
+  const spin = new THREE.Group(); g.add(spin);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.022, 32), mat); disc.rotation.x = Math.PI / 2; spin.add(disc);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 0.92, 0.008, 8, 32), mat); rim.position.z = 0.011; spin.add(rim);
+  for (const [hx, hy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const h = new THREE.Mesh(new THREE.CircleGeometry(r * 0.13, 12), holeMat); h.position.set(hx * r * 0.28, hy * r * 0.28, 0.0125); spin.add(h);
+  }
+  for (const sg of [-1, 1]) { const th = new THREE.Mesh(new THREE.BoxGeometry(r * 0.95, 0.008, 0.006), threadMat); th.rotation.z = sg * Math.PI / 4; th.position.z = 0.015; spin.add(th); }
+  buttons.push({ spin });
+}
+const MOUTH = { y: 1.875, w: 0.2 };
+const mouthLine = dynTube(14, 5, threadMat); face.add(mouthLine.m);
+const mouthStitches = Array.from({ length: 6 }, () => { const s = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.05, 0.009), threadMat); face.add(s); return s; });
+function setMouth(curve) {
+  const pts = [];
+  for (let i = 0; i < 14; i++) {
+    const u = i / 13 * 2 - 1, x = u * MOUTH.w / 2, y = MOUTH.y + curve * 0.035 * (u * u - 0.35);
+    pts.push(new V3(x, y, surfZ(x, y) + 0.005));
+  }
+  writeTube(mouthLine, pts, 0.0055, 0.0055);
+  mouthStitches.forEach((s, i) => {
+    const k = Math.round(1.5 + i * 2), p = pts[k], q = pts[Math.min(13, k + 1)];
+    s.position.copy(p).add(new V3(0, 0, 0.004));
+    s.rotation.set(0, Math.atan2(p.x, surfZ(p.x, p.y)) * 0.6, Math.atan2(q.y - p.y, q.x - p.x) + (i % 2 ? 0.35 : -0.35));
+  });
+}
+
+/* ---------- yarn hair, falling round the face ---------- */
+const hairGroups = [];
+{
+  const strands = { left: [], right: [], back: [] };
+  const insideHead = (v) => (v.x / HEAD.a) ** 2 + ((v.y - HEAD.y) / HEAD.b) ** 2 + (v.z / HEAD.c) ** 2 < 1.02;
+  const push = (v) => { const r = Math.sqrt((v.x / HEAD.a) ** 2 + ((v.y - HEAD.y) / HEAD.b) ** 2 + (v.z / HEAD.c) ** 2); if (r < 1.05) { const k = 1.05 / r; v.set(v.x * k, HEAD.y + (v.y - HEAD.y) * k, v.z * k); } };
+  for (let i = 0; i < 42; i++) {
+    let az = rr(-Math.PI, Math.PI);
+    if (Math.abs(az) < 0.5 && i > 3) az += Math.sign(az || 1) * 0.5;      // keep the face clear, bar a few
+    const pol = rr(0.18, 0.62), root = new V3(Math.sin(pol) * Math.sin(az) * HEAD.a, HEAD.y + Math.cos(pol) * HEAD.b, Math.sin(pol) * Math.cos(az) * HEAD.c);
+    const pts = [root.clone()], out = new V3(root.x, 0, root.z).normalize();
+    const len = rr(0.32, 0.55), steps = 9, wave = rr(0, TAU);
+    let v = root.clone();
+    for (let s = 1; s <= steps; s++) {
+      v = v.clone().addScaledVector(out, 0.022).add(new V3(0, -len / steps, 0));
+      v.addScaledVector(new V3(-out.z, 0, out.x), Math.sin(s * 0.9 + wave) * 0.012);
+      push(v); pts.push(v.clone());
+    }
+    const group = Math.abs(az) > 2.2 ? 'back' : az < 0 ? 'left' : 'right';
+    strands[group].push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 18, rr(0.009, 0.013), 5));
+  }
+  // and two that fall across her left eye, as painted
+  for (const dx of [-0.02, 0.02]) {
+    const pts = [new V3(-0.05 + dx, 2.27, 0.17), new V3(-0.09 + dx, 2.14, 0.26), new V3(-0.12 + dx, 2.02, 0.29), new V3(-0.15 + dx, 1.9, 0.27), new V3(-0.18 + dx, 1.8, 0.22)];
+    strands.left.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 18, 0.011, 5));
+  }
+  for (const [k, list] of Object.entries(strands)) {
+    if (!list.length) continue;
+    const piv = new THREE.Group(); piv.position.set(0, HEAD.y + HEAD.b * 0.8 - 1.66, 0);
+    // strands are drawn in body heights; shift them into the pivot's own space
+    const m = new THREE.Mesh(mergeGeometries(list), yarnMat);
+    m.position.set(0, -piv.position.y - 1.66, 0); m.castShadow = true;
+    piv.add(m); headPivot.add(piv); hairGroups.push({ piv, k, ph: rr(0, TAU) });
+  }
+}
+
+/* ---------- the tear in the belly, with the gut spilling out ---------- */
+const TEAR = W(0.15, 1.13, 0.6);
+const tearHit = onSurface(torso, TEAR);
+const tearAt = toLocal(torsoPivot, tearHit.p), tearN = tearHit.n.clone();
+{
+  const n = tearN, t = new V3(0, 1, 0).addScaledVector(n, -n.y).normalize(), b = t.clone().cross(n).normalize();
+  const g = new THREE.PlaneGeometry(0.2, 0.27, 6, 6), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const at = tearHit.p.clone().addScaledVector(b, p.getX(i)).addScaledVector(t, p.getY(i)).addScaledVector(n, 0.15);
+    const h = onSurface(torso, at) ?? { p: at, n };
+    const q = toLocal(torsoPivot, h.p.addScaledVector(h.n, 0.004)); p.setXYZ(i, q.x, q.y, q.z);
+  }
+  torsoPivot.add(new THREE.Mesh(g, tearMat));
+  // torn flaps curling out of the edge
+  for (const [ang, len] of [[0.4, 0.07], [1.6, 0.06], [2.7, 0.08], [4.2, 0.06], [5.4, 0.07]]) {
+    const at = tearAt.clone().addScaledVector(b, Math.cos(ang) * 0.085).addScaledVector(t, Math.sin(ang) * 0.115);
+    const f = new THREE.Mesh(tint(new THREE.PlaneGeometry(0.05, len, 2, 4).translate(0, len / 2, 0), (c) => c.copy(TAN)), burlap);
+    f.position.copy(at); f.quaternion.setFromUnitVectors(new V3(0, 0, 1), n); f.rotateZ(-ang + Math.PI / 2); f.rotateX(0.6);
+    torsoPivot.add(f);
+  }
+  // stuffing bulging through, and coils of bowel inside
+  for (let i = 0; i < 6; i++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(rr(0.025, 0.04), 10, 8), stuffMat);
+    s.position.copy(tearAt).addScaledVector(b, rr(-0.06, 0.06)).addScaledVector(t, rr(-0.09, 0.09)).addScaledVector(n, 0.01); torsoPivot.add(s);
+  }
+  for (const [dy, r, rot] of [[0.05, 0.045, 0.3], [-0.02, 0.05, -0.6]]) {
+    const c = new THREE.Mesh(new THREE.TorusGeometry(r, 0.02, 10, 24, Math.PI * 1.4), gutMat);
+    c.position.copy(tearAt).addScaledVector(t, dy).addScaledVector(n, -0.01); c.quaternion.setFromUnitVectors(new V3(0, 0, 1), n); c.rotateZ(rot); torsoPivot.add(c);
+  }
+}
+/* The spilled gut is a rope with real physics: a few points that fall, swing
+   and keep their spacing, drawn as two strands braided round each other, as
+   she painted it. It swings with every jab, cramp and hit. */
+const ROPE = { n: 11, seg: 0.055 };
+const rope = Array.from({ length: ROPE.n }, (_, i) => ({ p: new V3(), o: new V3() }));
+const strands = [dynTube(46, 7, gutMat), dynTube(46, 7, gutMat)];
+for (const s of strands) world.add(s.m);
+let ropeReady = false;
+const gutAnchor = new V3();
+
+/* ---------- arms ending in boxing gloves ---------- */
+const GLOVE = (() => {
+  const mitt = mergeGeometries([
+    new THREE.SphereGeometry(1, 24, 18).scale(0.15, 0.17, 0.15).translate(0, 0.02, 0.03),
+    new THREE.SphereGeometry(1, 16, 12).scale(0.06, 0.09, 0.06).translate(0.11, -0.02, 0.07),
+  ].map((g) => g.toNonIndexed()));
+  return { mitt, cuff: new THREE.CylinderGeometry(0.105, 0.1, 0.14, 24).translate(0, -0.16, 0), trim: new THREE.TorusGeometry(0.106, 0.016, 8, 24).rotateX(Math.PI / 2).translate(0, -0.11, 0) };
+})();
+const arms = [];
+const ARM_REST = { a: -0.9, c: -0.2 };
+for (const s of [-1, 1]) {
+  const L = limb({ len: 0.56, r0: 0.11, r1: 0.095, bones: 4, mat: burlap, color: s < 0 ? PALE : TAN });
+  L.bones[0].rotation.order = 'YXZ'; world.add(L.mesh);
+  const cap = new THREE.Mesh(tint(new THREE.SphereGeometry(0.115, 16, 12), (c) => c.copy(s < 0 ? PALE : TAN)), burlap); L.bones[0].add(cap);
+  const glove = new THREE.Group(); glove.position.y = L.seg; L.bones[3].add(glove);
+  const g = new THREE.Group(); g.position.y = 0.16; glove.add(g);
+  const mitt = new THREE.Mesh(GLOVE.mitt, leather); mitt.scale.x = s; mitt.castShadow = true; g.add(mitt);
+  g.add(new THREE.Mesh(GLOVE.cuff, leatherDark), new THREE.Mesh(GLOVE.trim, trimMat));
+  arms.push({ s, L, glove, shoulder: W(s * 0.36, 1.5, 0.02), st: { ...ARM_REST }, target: new V3(), yaw: 0, punch: new Spring(260, 18) });
+}
+/* ---------- legs and burlap boots ---------- */
+const BOOT = mergeGeometries([
+  new THREE.SphereGeometry(1, 22, 14).scale(0.15, 0.11, 0.22).translate(0, 0.07, 0.05),
+  new THREE.CylinderGeometry(0.13, 0.15, 0.12, 20).translate(0, 0.11, -0.02),
+].map((g) => tint(g.toNonIndexed(), (c) => c.copy(PALE).multiplyScalar(0.92))));
+const legs = [];
+for (const s of [-1, 1]) {
+  const L = limb({ len: 0.82, r0: 0.16, r1: 0.135, bones: 4, mat: burlap, color: s < 0 ? PALE : PALE.clone().lerp(TAN, 0.35) });
+  L.bones[0].rotation.order = 'YXZ'; world.add(L.mesh);
+  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.03, 10, 24), leatherDark); cuff.rotation.x = Math.PI / 2; cuff.position.y = L.seg * 0.75; L.bones[3].add(cuff);
+  const boot = new THREE.Mesh(BOOT, burlap); boot.castShadow = true; boot.position.set(s * 0.2, 0, 0.04); boot.rotation.y = -s * 0.12; monster.add(boot);
+  legs.push({ s, L, hip: W(s * 0.18, 0.95, 0.0), foot: W(s * 0.2, 0.17, 0.02), st: { a: -1.4, c: 0.05 } });
+}
+
+/* =========================================================================
+   The human, as she painted her, and the summoning circle
+   ========================================================================= */
+const loader = new THREE.TextureLoader();
+const humanTex = loader.load('patient-7.png'); humanTex.colorSpace = THREE.SRGBColorSpace;
+const HUMAN_H = 2.6;
+const human = new THREE.Mesh(new THREE.PlaneGeometry(HUMAN_H * 300 / 420, HUMAN_H), noEdge(new THREE.MeshBasicMaterial({ map: humanTex, transparent: true, alphaTest: 0.02, toneMapped: false })));
+human.position.set(0, HUMAN_H / 2 - HUMAN_H * (24 / 420), 0.15);
+scene.add(human);
+const humanShadow = new THREE.Mesh(new THREE.CircleGeometry(0.34, 32), noEdge(new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.35, depthWrite: false })));
+humanShadow.rotation.x = -Math.PI / 2; humanShadow.scale.set(1, 0.45, 1); humanShadow.position.set(0, 0.008, 0.18); scene.add(humanShadow);
+const circleMat = noEdge(new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.85, toneMapped: false }));
+{ const img = new Image();
+  img.onload = () => { const c = document.createElement('canvas'); c.width = c.height = 760; c.getContext('2d').drawImage(img, 0, 0, 760, 760); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; circleMat.map = t; circleMat.needsUpdate = true; };
+  img.src = 'circle.svg'; }
+const circle = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), circleMat); circle.rotation.x = -Math.PI / 2; circle.position.y = 0.006; scene.add(circle);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(4, 48), noEdge(new THREE.ShadowMaterial({ color: '#05020a', opacity: 0.5 })));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; world.add(ground);
+
+/* =========================================================================
+   Particles
+   ========================================================================= */
+function particles(tex, max, blending) {
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(max * 3), col = new Float32Array(max * 3), size = new Float32Array(max), alpha = new Float32Array(max), rot = new Float32Array(max);
+  for (const [n, a, k] of [['position', pos, 3], ['aColor', col, 3], ['aSize', size, 1], ['aAlpha', alpha, 1], ['aRot', rot, 1]]) geo.setAttribute(n, new THREE.BufferAttribute(a, k));
+  const mat = noEdge(new THREE.ShaderMaterial({
+    uniforms: { uTex: { value: tex }, uPx: { value: 600 } },
+    vertexShader: `attribute vec3 aColor; attribute float aSize; attribute float aAlpha; attribute float aRot;
+      varying vec3 vColor; varying float vAlpha; varying float vRot; uniform float uPx;
+      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aSize * uPx / -mv.z; vColor = aColor; vAlpha = aAlpha; vRot = aRot; }`,
+    fragmentShader: `uniform sampler2D uTex; varying vec3 vColor; varying float vAlpha; varying float vRot;
+      void main() { vec2 p = gl_PointCoord - 0.5; float c = cos(vRot), s = sin(vRot); p = mat2(c, -s, s, c) * p;
+        vec4 t = texture2D(uTex, p + 0.5); gl_FragColor = vec4(vColor * t.rgb, t.a * vAlpha);
+        #include <colorspace_fragment>
+      }`,
+    transparent: true, depthWrite: false, blending, toneMapped: false,
+  }));
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
+  const P = Array.from({ length: max }, () => ({ life: 0, max: 1, p: new V3(), v: new V3(), s0: 0, s1: 0, c: new THREE.Color(), g: 0, drag: 0, spin: 0, rot: 0, a: 1 }));
+  let next = 0;
+  return {
+    mat,
+    emit(at, { v = new V3(), life = 1, s0 = 0.08, s1 = 0, color = '#ffffff', g = 0, drag = 0, a = 1 } = {}) {
+      const q = P[next]; next = (next + 1) % max;
+      q.life = q.max = life; q.p.copy(at); q.v.copy(v); q.s0 = s0; q.s1 = s1; q.c.set(color); q.g = g; q.drag = drag; q.spin = rnd(-2, 2); q.rot = rnd(0, TAU); q.a = a;
+    },
+    alive: () => P.filter((q) => q.life > 0).length,
+    sample: () => { const q = P.find((q) => q.life > 0); return q ? { p: q.p.toArray().map((v) => +v.toFixed(2)), a: q.a, life: +q.life.toFixed(2) } : null; },
+    step(dt) {
+      for (let i = 0; i < max; i++) {
+        const q = P[i];
+        if (q.life > 0) {
+          q.life -= dt; q.v.y += q.g * dt; q.v.multiplyScalar(Math.exp(-q.drag * dt)); q.p.addScaledVector(q.v, dt); q.rot += q.spin * dt;
+          const k = 1 - q.life / q.max;
+          pos[i * 3] = q.p.x; pos[i * 3 + 1] = q.p.y; pos[i * 3 + 2] = q.p.z;
+          col[i * 3] = q.c.r; col[i * 3 + 1] = q.c.g; col[i * 3 + 2] = q.c.b;
+          size[i] = lerp(q.s0, q.s1, k); alpha[i] = q.a * Math.sin(Math.PI * Math.min(1, k * 1.1 + 0.06)); rot[i] = q.rot;
+        } else { size[i] = 0; alpha[i] = 0; }
+      }
+      for (const n of ['position', 'aColor', 'aSize', 'aAlpha', 'aRot']) geo.attributes[n].needsUpdate = true;
+    },
+  };
+}
+const spark = particles(sparkTex, 500, THREE.AdditiveBlending);
+const fluff = particles(fluffTex, 80, THREE.NormalBlending);
+const randDir = () => new V3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize();
+
+/* =========================================================================
+   State
+   ========================================================================= */
+let phase = 'human', cured = 0;
+const CURES = 6;
+const knock = new Spring(140, 9), headSnap = new Spring(200, 8), crouch = new Spring(60, 10), bloat = new Spring(70, 7), taunt = new Spring(120, 12);
+const buttonSpin = new Spring(4, 1.2), appear = new Spring(120, 9), turn = new Spring(40, 11);
+let react = null, flare = null, trans = null, t = 0, nextJab = 2, nextFlare = 6, jabSide = 1;
+const drag = { on: false, x: 0, last: -99 };
+
+function chestPoint() { return torsoPivot.localToWorld(new V3(0, 0.15, 0.4)); }
+function doReact(type) {
+  if (phase !== 'monster') return;
+  react = { type, t: 0, dur: type === 'growl' ? 1.3 : 1.2 };
+  flare = null; crouch.target = 0; bloat.target = 0;
+  if (type === 'growl') {
+    // a wrong card: it taunts you with a flurry of punches
+    taunt.target = 1;
+  } else {
+    // a right card lands like a punch: it staggers, buttons spinning, stuffing flying. Still a monster.
+    knock.kick(5.5); headSnap.kick(-7); buttonSpin.kick(26);
+    const at = torsoPivot.localToWorld(tearAt.clone());
+    for (let i = 0; i < 16; i++) fluff.emit(at.clone().add(randDir().multiplyScalar(0.04)), { v: tearN.clone().multiplyScalar(rnd(0.6, 1.4)).add(randDir().multiplyScalar(0.6)).add(new V3(0, 0.4, 0)), life: rnd(1.2, 2), s0: 0.09, s1: 0.13, color: '#f2ead8', g: -1.2, drag: 1.6 });
+    for (let i = 0; i < 24; i++) spark.emit(chestPoint(), { v: randDir().multiplyScalar(rnd(0.6, 1.6)), life: rnd(0.4, 0.8), s0: 0.12, s1: 0, color: Math.random() < 0.6 ? '#4fe3d0' : '#ffffff', drag: 2 });
+    magic.intensity = 3;
+  }
+}
+/** The IBS itself: cramping, then bloating. */
+function startFlare() { if (phase === 'monster' && !react) flare = { t: 0 }; }
+function setVisible(m) {
+  monster.visible = m; for (const a of arms) a.L.mesh.visible = m; for (const l of legs) l.L.mesh.visible = m; for (const s of strands) s.m.visible = m;
+}
+const spellAudio = new Audio('spell-ibs.mp3'), castAudio = new Audio('cast.mp3');
+function castCurse() {
+  if (phase !== 'human') return;
+  phase = 'speaking'; castBtn.disabled = true; castBtn.dataset.busy = 'true';
+  let done = false;
+  const go = () => { if (done) return; done = true; castBtn.dataset.busy = 'false'; strike(); };
+  spellAudio.currentTime = 0; spellAudio.onended = () => setTimeout(go, 260);
+  spellAudio.play().catch(() => setTimeout(go, 1200));
+  setTimeout(go, 4000);
+}
+function strike() { phase = 'casting'; trans = { kind: 'curse', t: 0, swapped: false }; castAudio.currentTime = 0; castAudio.play().catch(() => {}); flash('curse'); }
+function cure() { if (phase !== 'monster') return; phase = 'curing'; trans = { kind: 'cure', t: 0, swapped: false }; react = null; flare = null; }
+function backToHuman() {
+  phase = 'human'; trans = null; react = null; flare = null; cured = 0; used.clear();
+  setVisible(false); human.visible = true; humanShadow.visible = true; human.material.opacity = 1; appear.set(1);
+  renderTray(); updateGauge(); castBtn.disabled = false; castBtn.style.display = '';
+  $('#hint').textContent = 'Cast the curse to see what ails them.';
+}
+const flashEl = $('#flash');
+function flash(tone) { flashEl.dataset.tone = tone; flashEl.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], { duration: REDUCE ? 200 : 700, easing: 'ease-out' }); }
+
+/* =========================================================================
+   The frame
+   ========================================================================= */
+function update(dt) {
+  t += dt;
+
+  /* ---------- transformations: all at once, behind a flash ---------- */
+  if (trans) {
+    const T = (trans.t += dt);
+    if (trans.kind === 'cure') {
+      magic.intensity = sstep(0, 0.6, T) * 6;
+      if (T < 0.65 && Math.random() < dt * 80) {
+        const a = rnd(0, TAU), r = rnd(1, 1.5), c = chestPoint();
+        const at = new V3(Math.cos(a) * r, rnd(0.1, 2.3), Math.sin(a) * r);
+        spark.emit(at, { v: c.clone().sub(at).multiplyScalar(1.7), life: 0.5, s0: 0.05, s1: 0.13, color: Math.random() < 0.5 ? '#4fe3d0' : '#f4d98b' });
+      }
+      if (T > 0.62 && !trans.swapped) {
+        trans.swapped = true; flash('cure');
+        const c = chestPoint();
+        for (let i = 0; i < 180; i++) spark.emit(c, { v: randDir().multiplyScalar(rnd(1, 3.4)), life: rnd(1, 2), s0: rnd(0.07, 0.16), s1: 0.01, color: ['#4fe3d0', '#f4d98b', '#ffffff', '#7ad6a8'][i % 4], g: -1, drag: 1.4 });
+        setVisible(false); human.visible = true; humanShadow.visible = true; human.material.opacity = 0; appear.set(0.85); appear.target = 1;
+      }
+      if (trans.swapped) human.material.opacity = Math.min(1, (T - 0.62) / 0.35);
+      if (T > 0.62) magic.intensity = Math.max(0, 6 * (1 - (T - 0.62) / 1.2));
+      if (T > 2.2) {
+        trans = null; phase = 'human';
+        toast('Cured! Healing potions: dicyclomine, loperamide, psyllium, antispasmodics.', 'good', 5200);
+        castBtn.disabled = false; castBtn.style.display = '';
+        $('#hint').textContent = 'The curse is broken. Cast it again to replay.';
+      }
+    } else {
+      if (T > 0.16 && !trans.swapped) {
+        trans.swapped = true; human.visible = false; humanShadow.visible = false; setVisible(true);
+        appear.set(0.2); appear.target = 1; ropeReady = false;
+        for (let i = 0; i < 90; i++) spark.emit(new V3(0, 1, 0.2), { v: randDir().multiplyScalar(rnd(0.8, 2.4)), life: rnd(0.7, 1.3), s0: rnd(0.07, 0.14), s1: 0, color: i % 2 ? '#b0347a' : '#b68cff', g: -0.8, drag: 1.6 });
+      }
+      if (T > 0.9) { trans = null; phase = 'monster'; castBtn.style.display = 'none'; $('#hint').textContent = 'Choose the right interventions. Drag to turn it.'; nextFlare = 4; }
+    }
+  }
+  appear.step(dt);
+  monster.scale.setScalar(Math.max(1e-4, appear.x));
+  human.scale.setScalar(phase === 'curing' || phase === 'human' ? Math.max(0.01, appear.x) : 1);
+
+  /* ---------- reactions and the IBS flare ---------- */
+  const shiver = trans?.kind === 'cure' && !trans.swapped ? sstep(0, 0.4, trans.t) : 0;
+  let tauntK = 0;
+  if (react) {
+    react.t += dt;
+    if (react.type === 'growl') tauntK = sstep(0, 0.1, react.t) * (1 - sstep(react.dur - 0.3, react.dur, react.t));
+    if (react.t > react.dur) { react = null; taunt.target = 0; }
+  }
+  let gutPain = 0;
+  if (flare) {
+    const F = (flare.t += dt);
+    crouch.target = F < 2.2 ? 1 : 0;                    // cramping: doubled over, gloves to the belly
+    bloat.target = F > 0.7 && F < 1.8 ? 1 : 0;          // bloating: the sack swells
+    gutPain = sstep(0, 0.3, F) * (1 - sstep(2, 2.6, F));
+    if (F > 2.6) flare = null;
+  }
+  if (phase === 'monster' && !react && !flare && !REDUCE && (nextFlare -= dt) <= 0) { startFlare(); nextFlare = rnd(8, 12); }
+  for (const s of [knock, headSnap, crouch, bloat, taunt, buttonSpin, turn]) s.step(dt);
+
+  /* ---------- the boxer's bounce ---------- */
+  const busy = flare || shiver > 0 ? 0 : 1;
+  const hop = Math.abs(Math.sin(t * Math.PI * 2.1)) * 0.035 * busy * MOTION;
+  const weave = Math.sin(t * 1.6) * 0.04 * busy * MOTION;
+  body.position.set(weave + Math.sin(t * 80) * 0.01 * shiver, hop - crouch.x * 0.09 - Math.max(0, knock.x) * 0.03, -knock.x * 0.06 + tauntK * 0.04);
+  body.rotation.set(crouch.x * 0.38 - knock.x * 0.12 + tauntK * 0.08, Math.sin(t * 1.1) * 0.12 * busy * MOTION, -weave * 0.6 + Math.sin(t * 70) * 0.02 * shiver);
+  headPivot.rotation.set(headSnap.x * 0.04 + crouch.x * 0.1 + Math.sin(t * 2.1 * Math.PI) * 0.03 * busy, 0, Math.sin(t * 1.3) * 0.05);
+  const b = 1 + bloat.x * 0.13 + Math.sin(t * 2.4) * 0.008;
+  torsoPivot.scale.set(b, 1 + bloat.x * 0.04, b * 1.05);
+  for (const btn of buttons) btn.spin.rotation.z += buttonSpin.x * dt * 6;
+  setMouth(lerp(0.5, -1.2, Math.max(gutPain, sstep(0, 1, knock.x))) + tauntK * 0.9);
+  for (const h of hairGroups) h.piv.rotation.set(Math.sin(t * 2.2 + h.ph) * 0.04 - knock.x * 0.04, 0, Math.sin(t * 1.7 + h.ph) * 0.05 + weave * 0.6);
+
+  /* ---------- gloves: guard up, jabs, a flurry when it taunts, clutching the belly when it cramps ---------- */
+  if (phase === 'monster' && !flare && !react && (nextJab -= dt) <= 0) { arms[jabSide > 0 ? 1 : 0].punch.kick(14); jabSide = -jabSide; nextJab = rnd(0.7, 2.2); }
+  if (tauntK > 0 && Math.random() < dt * 9) { const a = arms[Math.random() < 0.5 ? 0 : 1]; a.punch.kick(16); }
+  body.updateMatrixWorld(true);
+  for (const a of arms) {
+    a.punch.target = 0; a.punch.step(dt);
+    const pk = clamp(a.punch.x, 0, 1.4);
+    /* Targets live in the body's own space, so the gloves follow it as it
+       leans, weaves and swells. In fixed scene space the doubled-over,
+       bloated torso swallowed them whole. */
+    const bl = 1 + bloat.x * 0.13;
+    const guard = W(a.s * 0.2, 1.42 + Math.sin(t * 4.2 + a.s) * 0.02, 0.4);
+    const jab = W(a.s * 0.08, 1.5, 0.85);
+    const belly = W(a.s * 0.17 * bl, 1.12, 0.5 * bl);
+    a.target.copy(guard).lerp(jab, pk).lerp(belly, clamp(crouch.x, 0, 1));
+    body.localToWorld(a.target); world.worldToLocal(a.target);
+    const shoulder = body.localToWorld(a.shoulder.clone()); world.worldToLocal(shoulder);
+    a.L.mesh.position.copy(shoulder);
+    const wrist = a.target.clone().addScaledVector(a.target.clone().sub(shoulder).normalize(), -0.16);
+    const dx = wrist.x - shoulder.x, dz = wrist.z - shoulder.z;
+    reach(a.st, ARM_REST, Math.hypot(dx, dz), wrist.y - shoulder.y, a.L.nb, a.L.seg);
+    a.yaw = Math.atan2(dx, dz);
+    a.L.bones[0].rotation.set(Math.PI / 2 - a.st.a, a.yaw, 0, 'YXZ');
+    for (let i = 1; i < a.L.nb; i++) a.L.bones[i].rotation.set(a.st.c, 0, 0);
+  }
+  /* Legs point straight at their boots and stretch or squash to fit. The
+     boots sit almost directly under the hips, and a bending solver has no
+     good answer to that: it bowed one leg out sideways and curled the other
+     like a tail. A stuffed sack leg squashing as it bounces is right anyway. */
+  for (const l of legs) {
+    const hip = body.localToWorld(l.hip.clone()); world.worldToLocal(hip);
+    l.L.mesh.position.copy(hip);
+    const d = l.foot.clone().sub(hip), len = d.length();
+    l.L.bones[0].rotation.set(Math.PI / 2 - Math.atan2(d.y, Math.hypot(d.x, d.z)), Math.atan2(d.x, d.z), 0, 'YXZ');
+    for (let i = 1; i < l.L.nb; i++) l.L.bones[i].rotation.set(0, 0, 0);
+    l.L.mesh.scale.set(1, 1, 1); l.L.bones[0].scale.set(1, len / (l.L.seg * l.L.nb), 1);
+  }
+  if (!drag.on && t - drag.last > 2.5) turn.target = 0;
+  world.rotation.y = turn.x;
+  scene.updateMatrixWorld();
+  for (const a of arms) {                     // gloves face forward, knuckles out
+    a.L.bones[a.L.nb - 1].getWorldQuaternion(tmpQ).invert();
+    tmpQ2.setFromEuler(new THREE.Euler(-0.15, a.yaw * 0.6, a.s * 0.15, 'YXZ')).premultiply(world.quaternion);
+    a.glove.quaternion.copy(tmpQ).multiply(tmpQ2);
+  }
+
+  /* ---------- the gut: verlet rope from the tear ---------- */
+  gutAnchor.copy(torsoPivot.localToWorld(tearAt.clone().addScaledVector(tearN, -0.01).add(new V3(0, -0.06, 0))));
+  world.worldToLocal(gutAnchor);
+  if (!ropeReady) { rope.forEach((r, i) => { r.p.copy(gutAnchor).add(new V3(0, -i * ROPE.seg, 0.02 * i)); r.o.copy(r.p); }); ropeReady = true; }
+  const d2 = Math.min(dt, 1 / 30);
+  rope[0].p.copy(gutAnchor); rope[0].o.copy(gutAnchor);
+  for (let i = 1; i < ROPE.n; i++) {
+    const r = rope[i], v = r.p.clone().sub(r.o).multiplyScalar(0.985);
+    r.o.copy(r.p); r.p.add(v).add(new V3(0, -9.8 * d2 * d2, 0));
+  }
+  for (let k = 0; k < 8; k++) {
+    for (let i = 1; i < ROPE.n; i++) {
+      const a = rope[i - 1].p, bb = rope[i].p, d = bb.clone().sub(a), L = d.length() || 1e-5, diff = (L - ROPE.seg) / L;
+      if (i === 1) bb.addScaledVector(d, -diff); else { a.addScaledVector(d, diff * 0.5); bb.addScaledVector(d, -diff * 0.5); }
+    }
+    for (let i = 1; i < ROPE.n; i++) {                        // keep it outside the body and above the floor
+      const p = rope[i].p;
+      if (p.y < 0.03) p.y = 0.03;
+      const local = toLocal(torsoPivot, world.localToWorld(p.clone()));
+      const rr2 = Math.hypot(local.x / 0.42, local.z / 0.36);
+      if (local.y > -0.36 && local.y < 0.36 && rr2 < 1.04) { local.x *= 1.04 / rr2; local.z *= 1.04 / rr2; p.copy(world.worldToLocal(torsoPivot.localToWorld(local))); }
+    }
+  }
+  if (monster.visible) {
+    const centre = new THREE.CatmullRomCurve3(rope.map((r) => r.p)).getSpacedPoints(45);
+    const F = frames(centre, []);
+    for (let s = 0; s < 2; s++) {
+      const pts = centre.map((c, j) => { const a = j * 0.55 + s * Math.PI; return c.clone().addScaledVector(F[j].n, Math.cos(a) * 0.018).addScaledVector(F[j].b, Math.sin(a) * 0.018); });
+      writeTube(strands[s], pts, 0.024, 0.016);
+    }
+  }
+
+  /* ---------- light, circle, human ---------- */
+  if (!trans) magic.intensity = Math.max(0, magic.intensity - dt * 8);
+  circleMat.opacity = 0.6 + 0.15 * Math.sin(t * 2) + magic.intensity * 0.12;
+  human.quaternion.copy(camera.quaternion);
+  if (human.visible && phase === 'human') human.scale.y = human.scale.x * (1 + Math.sin(t * 1.4) * 0.006);
+  spark.step(dt); fluff.step(dt);
+}
+
+/* =========================================================================
+   Sizing, input, loop
+   ========================================================================= */
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h;
+  const halfV = Math.tan(camera.fov * DEG / 2), halfH = halfV * camera.aspect;
+  const dist = Math.max(1.42 / halfV, 1.15 / halfH) * 1.05;
+  const tgt = new V3(0, 1.16, 0.15), el = 12 * DEG;
+  camera.position.set(0, tgt.y + Math.sin(el) * dist, tgt.z + Math.cos(el) * dist); camera.lookAt(tgt);
+  camera.updateProjectionMatrix();
+  const px = renderer.getDrawingBufferSize(new THREE.Vector2()).y / (2 * halfV);
+  for (const p of [spark, fluff]) p.mat.uniforms.uPx.value = px;
+}
+new ResizeObserver(resize).observe(stage); resize();
+canvas.addEventListener('pointerdown', (e) => { if (phase !== 'monster') return; drag.on = true; drag.x = e.clientX; canvas.setPointerCapture(e.pointerId); canvas.classList.add('dragging'); });
+canvas.addEventListener('pointermove', (e) => { if (drag.on) { turn.target = clamp(turn.target + (e.clientX - drag.x) * 0.009, -1.2, 1.2); drag.x = e.clientX; drag.last = t; } });
+const endDrag = () => { drag.on = false; drag.last = t; canvas.classList.remove('dragging'); };
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+
+let last = performance.now(), fpsAvg = 60, statT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  update(dt); renderer.info.reset(); effect.render(scene, camera);
+  fpsAvg = lerp(fpsAvg, 1 / Math.max(dt, 1e-3), 0.05);
+  if ((statT += dt) > 0.5) { statT = 0; $('#stats').textContent = `${fpsAvg.toFixed(0)} fps · ${renderer.info.render.calls} draws · ${(renderer.info.render.triangles / 1000).toFixed(1)}k tris`; }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* =========================================================================
+   The tray: her six real cures from the game, and four decoys (DJ C.Diff's)
+   ========================================================================= */
+const ITEMS = [
+  { id: 'water-bottle', label: 'Water Bottle', ok: true, why: 'Hydrate.' },
+  { id: 'isolation-gown', label: 'Isolation Gown and Gloves', ok: false, why: 'Contact precautions are for C. diff, not this.' },
+  { id: 'food-diary', label: 'Food Diary', ok: true, why: 'Find the triggers.' },
+  { id: 'toilet', label: 'Toilet', ok: true, why: 'A bowel routine.' },
+  { id: 'iv-bag', label: 'IV Bag', ok: false, why: 'IV fluids are not the answer here.' },
+  { id: 'stress-crystal', label: 'Stress-Relief Crystal', ok: true, why: 'Reduce stress.' },
+  { id: 'soap', label: 'Soap', ok: false, why: 'Handwashing against spores is C. diff care.' },
+  { id: 'walking-shoes', label: 'Walking Shoes', ok: true, why: 'Exercise.' },
+  { id: 'sporicidal-wand', label: 'Sporicidal Cleaning Wand', ok: false, why: 'Disinfecting the room is for C. diff.' },
+  { id: 'bacteria-germ', label: 'Bacteria Germ', ok: true, why: 'Test for H. pylori.' },
+];
+const used = new Set();
+const tray = $('#tray');
+function renderTray() {
+  tray.innerHTML = '';
+  for (const it of ITEMS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'item'; b.title = it.label;
+    b.innerHTML = `<img src="items/item-${it.id}.webp" alt=""><span>${it.label}</span>`;
+    b.dataset.done = String(used.has(it.id)); b.disabled = used.has(it.id);
+    b.addEventListener('click', () => useItem(it, b));
+    tray.append(b);
+  }
+}
+function useItem(it, b) {
+  if (phase !== 'monster') { toast(phase === 'human' ? 'Cast the curse first.' : 'Wait for it…'); return; }
+  if (!it.ok) { doReact('growl'); b.dataset.bad = 'false'; void b.offsetWidth; b.dataset.bad = 'true'; toast(`${it.label}: ${it.why}`, 'bad'); return; }
+  used.add(it.id); cured = used.size; b.dataset.done = 'true'; b.disabled = true; updateGauge();
+  if (cured >= CURES) { toast(`${it.label}: ${it.why}`, 'good'); cure(); }
+  else { doReact('hit'); toast(`${it.label}: ${it.why}`, 'good'); }
+}
+function updateGauge() {
+  const h = Math.round(cured / CURES * 100);
+  $('#bar').style.width = `${h}%`; $('#hpct').textContent = `${h}%`; $('#cpct').textContent = `${100 - h}%`;
+}
+let toastTimer = 0;
+function toast(msg, tone = '', ms = 3400) {
+  const el = $('#toast'); el.textContent = msg; el.dataset.tone = tone; el.dataset.on = 'true';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.dataset.on = 'false'), ms);
+}
+const castBtn = $('#cast');
+castBtn.addEventListener('click', castCurse);
+document.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => {
+  const a = b.dataset.act;
+  if (phase === 'human' && a !== 'reset') { toast('Cast the curse first.'); return; }
+  if (a === 'growl' || a === 'hit') doReact(a);
+  if (a === 'cramp') startFlare();
+  if (a === 'cure' && phase === 'monster') { cured = CURES; updateGauge(); cure(); }
+  if (a === 'reset') backToHuman();
+}));
+backToHuman();
+
+window.__dj = {
+  cast: () => { if (phase === 'human') strike(); }, react: doReact, flare: startFlare, cure, reset: backToHuman,
+  state: () => ({ phase, cured, react: react?.type ?? null, flare: !!flare, trans: trans?.kind ?? null }),
+  stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }),
+  gloves: () => arms.map((a) => a.glove.getWorldPosition(new V3()).toArray().map((v) => +v.toFixed(2))),
+  rope: () => rope.map((r) => +r.p.y.toFixed(2)),
+  particles: () => ({ spark: spark.alive(), fluff: fluff.alive() }),
+  step: (sec = 1) => { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) update(1 / 60); renderer.info.reset(); effect.render(scene, camera); return n; },
+};
+</script>
+</body>
+</html>

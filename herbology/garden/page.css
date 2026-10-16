@@ -1,0 +1,127 @@
+/* The test page around one plant. The game will have its own UI; this is
+   the stand-in so each plant can be judged and played on its own. */
+:root {
+  --gold: #d9a441; --gold-lit: #f4d98b; --gold-dim: #8a5f22;
+  --parch: #f4e7c6; --ink: #2b2036; --red: #f2536b; --note: #655a45; --kicker: #7a531d;
+  --bg0: #24493b; --bg1: #11291e; --bg2: #050c08;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg2); color: var(--parch);
+  font-family: "Cormorant Garamond", Georgia, serif; font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--gold-lit); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 380px; height: 100dvh; }
+.stage {
+  position: relative; overflow: hidden; min-height: 0;
+  background: radial-gradient(110% 85% at 46% 32%, var(--bg0) 0%, var(--bg1) 46%, var(--bg2) 100%);
+}
+.stage::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgb(0 0 0 / 50%) 100%);
+}
+#c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#c.dragging { cursor: grabbing; }
+.title { position: absolute; left: 28px; top: 22px; z-index: 2; pointer-events: none; max-width: 62%; }
+/* a soft shade behind the title and hint so they read on the light skies too */
+.title::before { content: ""; position: absolute; inset: -40px -70px -36px -50px; z-index: -1; background: radial-gradient(closest-side, rgb(12 8 6 / 50%), transparent); }
+.title, .hint { text-shadow: 0 1px 3px rgb(0 0 0 / 70%); }
+.kicker { font: 700 12px/1.3 "Cormorant Garamond", serif; letter-spacing: .22em; text-transform: uppercase; color: #c9a45c; }
+.kicker a { pointer-events: auto; color: inherit; text-decoration: none; }
+.kicker a:hover { text-decoration: underline; }
+h1 {
+  font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400;
+  font-size: clamp(28px, 3.4vw, 44px); line-height: 1.05; margin: 6px 0 4px; color: var(--gold-lit);
+  text-shadow: 0 2px 0 rgb(0 0 0 / 45%), 0 0 24px rgb(244 217 139 / 18%);
+}
+.sub { font-style: italic; font-size: 18px; color: #cfe3c9; }
+.hint { position: absolute; left: 28px; bottom: 20px; z-index: 2; pointer-events: none; font-size: 15px; color: rgb(207 227 201 / 75%); }
+.stats { position: absolute; right: 16px; bottom: 16px; z-index: 2; pointer-events: none; font: 12px/1.4 ui-monospace, Consolas, monospace; color: rgb(207 227 201 / 55%); text-align: right; }
+.bubble {
+  position: absolute; z-index: 3; left: 0; top: 0; pointer-events: none;
+  max-width: 200px; padding: 10px 14px; border-radius: 20px;
+  background: #fff8f0; color: #5b3a36; border: 2px solid #e7b7b0;
+  font: 600 17px/1.2 "Cormorant Garamond", serif; text-align: center;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 30%);
+  opacity: 0; transform: translate(0, 6px) scale(.92); transform-origin: 0 100%;
+  transition: opacity .22s, transform .22s;
+}
+.bubble::after {
+  content: ''; position: absolute; left: 14px; bottom: -9px; width: 14px; height: 14px;
+  background: #fff8f0; border-left: 2px solid #e7b7b0; border-bottom: 2px solid #e7b7b0;
+  transform: skewX(-25deg) rotate(-30deg); border-bottom-left-radius: 4px;
+}
+.bubble[data-on='true'] { opacity: 1; transform: none; }
+.toast {
+  position: absolute; left: 50%; bottom: 52px; transform: translate(-50%, 12px); z-index: 3;
+  max-width: min(560px, calc(100% - 32px)); padding: 10px 18px; border-radius: 14px;
+  background: rgb(26 18 13 / 88%); border: 1px solid rgb(217 164 65 / 55%);
+  color: var(--parch); font-size: 17px; text-align: center; opacity: 0; pointer-events: none;
+  transition: opacity .25s, transform .25s;
+}
+.toast[data-on='true'] { opacity: 1; transform: translate(-50%, 0); }
+.toast[data-tone='good'] { border-color: rgb(122 214 168 / 70%); }
+.toast[data-tone='bad'] { border-color: rgb(242 83 107 / 75%); }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; font-size: 19px; z-index: 4; }
+.panel {
+  background: linear-gradient(180deg, #2a1d16, #1a120d);
+  border-left: 1px solid rgb(217 164 65 / 35%);
+  padding: 20px 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;
+}
+.card {
+  background: var(--parch); color: var(--ink); border-radius: 16px; padding: 14px 14px 16px;
+  box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%), 0 8px 22px rgb(0 0 0 / 35%);
+}
+.card h2 { font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400; font-size: 23px; margin: 0; color: #4a2a1a; }
+.card .k, .dev .k { font: 700 12px/1.3 "Cormorant Garamond", serif; letter-spacing: .18em; text-transform: uppercase; color: var(--kicker); }
+.card p { margin: 6px 0 0; font-size: 16px; line-height: 1.35; color: var(--note); }
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.tool {
+  display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 8px 10px;
+  border-radius: 12px; border: 1px solid rgb(138 95 34 / 55%);
+  background: linear-gradient(#fffaf0, #efdcb0); color: #3a2414;
+  font: 700 15px/1.12 "Cormorant Garamond", serif; text-align: left; cursor: pointer;
+  transition: transform .12s, box-shadow .12s, opacity .2s;
+}
+.tool:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgb(74 42 26 / 25%); }
+.tool:focus-visible { outline: 2px solid #4a2a6a; outline-offset: 2px; }
+.tool .ic { font-size: 22px; line-height: 1; flex: none; }
+.tool[data-done='true'] { opacity: .5; background: linear-gradient(#e6f5ea, #cfe8d6); border-color: rgb(63 150 64 / 60%); cursor: default; }
+.tool[data-bad='true'] { animation: nope .42s; border-color: var(--red); }
+@keyframes nope { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+.meter { margin-top: 14px; }
+.meter .row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: var(--kicker); letter-spacing: .06em; text-transform: uppercase; }
+.bar { height: 12px; border-radius: 99px; background: #e2d0a6; box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #c2587a, #e8b04a, #6bb552); transition: width .5s; }
+details { font-size: 16px; }
+details summary { cursor: pointer; font-weight: 700; color: #4a2a1a; }
+details ul { margin: 8px 0 0; padding-left: 18px; color: var(--note); line-height: 1.35; }
+details li { margin: 3px 0; }
+.draft { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #f9e0c8; color: #7a3a1a; font-size: 15px; }
+.dev { background: rgb(0 0 0 / 22%); border: 1px solid rgb(217 164 65 / 30%); border-radius: 16px; padding: 14px; }
+.dev .k { color: #c9a45c; }
+.dev h2 { color: var(--gold-lit); font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400; font-size: 22px; margin: 0; }
+.dev .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.dev button {
+  padding: 9px 10px; border-radius: 99px; border: 1px solid rgb(217 164 65 / 60%);
+  background: linear-gradient(#4a3424, #2a1d16); color: var(--gold-lit);
+  font: 700 15px/1 "Cormorant Garamond", serif; cursor: pointer;
+}
+.dev button:hover { border-color: var(--gold-lit); }
+.dev label { display: block; margin-top: 12px; font-size: 15px; color: #d8c9a4; }
+.dev input[type=range] { width: 100%; accent-color: var(--gold); }
+.nav { display: flex; justify-content: space-between; gap: 8px; font-size: 16px; }
+.nav a { text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 66dvh auto; height: auto; }
+  .panel { border-left: 0; border-top: 1px solid rgb(217 164 65 / 35%); }
+  .title { left: 16px; top: 14px; max-width: 90%; }
+  .hint { left: 16px; bottom: 12px; font-size: 14px; }
+  .stats { display: none; }
+  .toast { font-size: 15px; padding: 8px 12px; bottom: 40px; }
+  .bubble { font-size: 15px; max-width: 160px; }
+}
+@media (prefers-reduced-motion: reduce) { .tool, .toast, .bar i, .bubble { transition: none; } .tool[data-bad='true'] { animation: none; } }

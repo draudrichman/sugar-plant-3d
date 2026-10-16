@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Herbology Garden</title>
+<meta name="description" content="Mother Nature's Herbology: all fifteen plants as animated 3D tests.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Macondo+Swash+Caps&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap">
+<style>
+:root { --gold-lit: #f4d98b; --parch: #f4e7c6; --ink: #2b2036; --note: #655a45; --kicker: #7a531d; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100dvh; color: var(--parch);
+  background: radial-gradient(110% 70% at 50% 0%, #24493b 0%, #11291e 50%, #050c08 100%) fixed;
+  font-family: "Cormorant Garamond", Georgia, serif; font-size: 17px;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 36px 16px 56px; }
+.kicker { font: 700 12px/1.3 "Cormorant Garamond", serif; letter-spacing: .22em; text-transform: uppercase; color: #c9a45c; }
+h1 { font-family: "Macondo Swash Caps", Georgia, serif; font-weight: 400; font-size: clamp(32px, 5vw, 52px); margin: 6px 0 6px; color: var(--gold-lit); }
+.lede { font-size: 19px; color: #cfe3c9; max-width: 640px; margin: 0 0 28px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+a.plant {
+  display: flex; flex-direction: column; text-decoration: none; color: var(--ink);
+  background: var(--parch); border-radius: 16px; overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgb(138 95 34 / 45%), 0 8px 22px rgb(0 0 0 / 35%);
+  transition: transform .15s, box-shadow .15s;
+}
+a.plant:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px rgb(138 95 34 / 70%), 0 12px 28px rgb(0 0 0 / 45%); }
+a.plant:focus-visible { outline: 3px solid var(--gold-lit); outline-offset: 3px; }
+.plant img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #e2d0a6; }
+.plant .txt { padding: 10px 12px 12px; }
+.plant .n { font: 700 12px/1 "Cormorant Garamond", serif; letter-spacing: .16em; text-transform: uppercase; color: var(--kicker); }
+.plant .nm { font-family: "Macondo Swash Caps", Georgia, serif; font-size: 20px; line-height: 1.1; margin-top: 4px; color: #4a2a1a; }
+.plant .cd { font-size: 15px; color: var(--note); margin-top: 2px; }
+.plant .draft { font-size: 13px; color: #7a3a1a; margin-top: 4px; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { a.plant { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">NurseTown · 3D tests</div>
+  <h1>Mother Nature's Herbology</h1>
+  <p class="lede">All fifteen plants, built from her slides and animated. Open one to treat it: the wrong garden care makes it worse, the right care heals it a step at a time, and the last card breaks the curse.</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script type="module">
+import { CATALOG } from './garden/catalog.js';
+const grid = document.getElementById('grid');
+for (const p of CATALOG) {
+  const a = document.createElement('a');
+  a.className = 'plant'; a.href = `plant.html?p=${p.id}`;
+  a.innerHTML = `<img src="thumbs/${p.id}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><div class="txt"><div class="n">${p.n} of ${CATALOG.length}</div><div class="nm"></div><div class="cd"></div>${p.draft ? '<div class="draft">Draft cards: write-up needed</div>' : ''}</div>`;
+  a.querySelector('.nm').textContent = p.name; a.querySelector('.cd').textContent = p.condition;
+  grid.append(a);
+}
+</script>
+</body>
+</html>

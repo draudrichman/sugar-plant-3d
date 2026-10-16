@@ -6,8 +6,7 @@
    wrong answer on another, as in Dark Arts.
 
    Source: "Mother Nature's Magical Herbology Garden" (her doc) and the deck
-   slides saved in refs/. Prolapsed Umbilical Cord has art but no write-up yet;
-   its entry is marked draft and is my placeholder until she sends hers. */
+   slides saved in refs/. Prolapsed Umbilical Cord was written up separately at the end of her doc. */
 
 export const CATALOG = [
   {
@@ -181,16 +180,19 @@ export const CATALOG = [
     potions: 'No universal antidote exists. Treatment depends on the exposure; folic acid supports normal neural tube development but cannot reverse established teratogenic injury.',
   },
   {
-    id: 'prolapsed-cord', n: 15, name: 'The Prolapsed Cord Vine', condition: 'Prolapsed Umbilical Cord', ref: 'p25_0.jpg', draft: true,
-    pathology: 'The umbilical cord slips through the cervix ahead of the presenting part during labor, where it can be compressed and cut off the baby\'s oxygen supply.',
-    signs: ['Cord visible or felt in the vagina', 'Sudden fetal bradycardia or variable decelerations', 'Usually after rupture of membranes'],
+    id: 'prolapsed-cord', n: 15, name: 'The Prolapsed Cord Vine', condition: 'Prolapsed Umbilical Cord', ref: 'p25_0.jpg',
+    pathology: 'The umbilical cord descends through the cervix ahead of or alongside the presenting fetal part, which reduces oxygenated blood flow to the fetus. This can cause fetal hypoxia and life-threatening fetal bradycardia. It is an obstetric emergency requiring immediate intervention and expedited delivery.',
+    signs: ['Sudden fetal bradycardia or prolonged fetal heart rate deceleration', 'Umbilical cord may be visible at the vaginal opening or palpable during vaginal examination', 'Cord compression may cause recurrent variable decelerations and fetal hypoxia', 'May occur following rupture of membranes, particularly when the presenting part is high or unengaged'],
     tools: [
-      { id: 'lift-the-bloom', ic: '🖐️', name: 'Lift-the-Bloom Hand', why: 'Keep the bloom off the vine. Manually elevate the presenting part to relieve pressure on the cord.' },
-      { id: 'knee-chest-pose', ic: '🧎', name: 'Upside-Down Garden Pose', why: 'Tip the pot so gravity helps. Position knee-chest or Trendelenburg.' },
-      { id: 'moist-leaf-wrap', ic: '🌿', name: 'Moist Leaf Wrap', why: 'Do not push the vine back. Cover exposed cord with warm, moist sterile gauze and handle it as little as possible.' },
-      { id: 'cord-emergency-signal', ic: '📣', name: 'Emergency Bloom Signal', why: 'Call for help and prepare for immediate delivery, usually by cesarean.' },
+      { id: 'cord-garden-bell', ic: '🔔', name: 'Ring the Emergency Garden Bell', why: 'Call for immediate obstetric assistance and activate the emergency response.' },
+      { id: 'lift-flower-bulb', ic: '🖐️', name: 'Lift the Heavy Flower Bulb', why: 'With a sterile-gloved hand, elevate the presenting fetal part off the cord and maintain pressure relief until delivery or directed handoff.' },
+      { id: 'tilt-flowerpot', ic: '🪴', name: 'Tilt the Magical Flowerpot', why: 'Position the patient in knee-chest or steep Trendelenburg position to help relieve cord compression, while maintaining manual elevation.' },
+      { id: 'protect-exposed-vine', ic: '🌿', name: 'Protect the Exposed Vine', why: 'If the cord protrudes externally, protect it with sterile gauze moistened with warm normal saline. Do not push the cord back inside or manipulate it unnecessarily.' },
+      { id: 'blossom-heartbeat', ic: '💗', name: "Watch the Blossom's Heartbeat", why: 'Continuously monitor fetal heart rate and assess for persistent bradycardia or decelerations.' },
+      { id: 'stop-growth-potion', ic: '⛔', name: 'Stop the Growth Potion', why: 'Discontinue oxytocin infusion if running, to reduce uterine stimulation.' },
+      { id: 'emergency-blooming-chamber', ic: '🏥', name: 'Prepare the Emergency Blooming Chamber', why: 'Prepare for expedited delivery, usually emergency cesarean birth unless vaginal delivery is imminent and faster.' },
     ],
-    potions: 'Oxygen to the mother; tocolytics such as terbutaline may be given to reduce contractions while preparing for delivery.',
+    potions: 'Medications do not correct the prolapsed cord itself; they support while the team prepares for delivery. Terbutaline may be ordered as a temporary tocolytic to reduce contractions and cord compression. IV crystalloid fluids maintain IV access and support circulation.',
   },
 ];
 

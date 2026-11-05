@@ -2,36 +2,36 @@
 
 export const CREATURES = [
   {
-    "id": "pyloric-3d",
-    "model": "pyloric",
-    "n": 20,
-    "name": "Sir Pyloric Bow-Tie",
-    "disease": "Hypertrophic Pyloric Stenosis",
-    "glow": "#ffc46b",
-    "shell": "#f6e2cf",
+    "id": "clubfoot-3d",
+    "model": "clubfoot",
+    "n": 9,
+    "name": "Club cub Monster",
+    "disease": "Clubfoot",
+    "glow": "#d8ffb8",
+    "shell": "#ffffff",
     "confetti": [
-      "#f4d98b",
-      "#e85a7a",
+      "#ff8fb8",
+      "#7ed957",
       "#ffffff",
-      "#b3243f",
-      "#ffb3c4"
+      "#ffd84f",
+      "#ff5c8a"
     ],
     "sections": [
       [
         "Pathology",
-        "Hypertrophy of the pyloric muscle narrows the gastric outlet, preventing normal stomach emptying."
+        "A congenital foot deformity involving inward rotation, plantar flexion, and abnormal positioning of the foot and ankle."
       ],
       [
         "Signs & Symptoms",
-        "Progressive projectile nonbilious vomiting, persistent hunger after vomiting, dehydration, weight loss, visible gastric peristalsis, and sometimes an olive-shaped abdominal mass. Hypochloremic, hypokalemic metabolic alkalosis may develop."
+        "Foot turned inward and downward, rigid or limited range of motion, smaller calf, and difficulty positioning the foot normally."
       ],
       [
         "Nursing Interventions",
-        "Keep NPO, monitor electrolytes and hydration, correct fluid and electrolyte abnormalities before surgery, and prepare for pyloromyotomy."
+        "Support Ponseti serial casting, monitor circulation and skin integrity, educate caregivers about cast care, and reinforce long-term brace adherence."
       ],
       [
         "Medications",
-        "IV isotonic fluids with electrolyte replacement as indicated; postoperative analgesics. Surgery is the definitive treatment."
+        "No disease-specific medication. Acetaminophen or other appropriate analgesics may be used for discomfort following procedures."
       ]
     ]
   }

@@ -26,6 +26,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import * as toonKit from './toon.js';
 
 const V3 = THREE.Vector3;
@@ -775,6 +776,25 @@ export async function mountHatchery(canvas, list, hooks = {}) {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
+  // A pixel the burst's light pushed past what the buffer holds (on some graphics cards) becomes
+  // not-a-number, and the bloom spreads it over the screen as black: such pixels are dropped and
+  // the brightest held to a ceiling before the bloom sees them.
+  composer.addPass(
+    new ShaderPass({
+      uniforms: { tDiffuse: { value: null } },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D tDiffuse;
+        varying vec2 vUv;
+        void main() {
+          vec4 c = texture2D(tDiffuse, vUv);
+          if (any(isnan(c)) || any(isinf(c))) c = vec4(0.0, 0.0, 0.0, 1.0);
+          gl_FragColor = vec4(clamp(c.rgb, 0.0, 24.0), c.a);
+        }`,
+    }),
+  );
   // (only light brighter than white blooms: the cracks, the flames, the sparkles, never her colours)
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.45, 1.0);
   composer.addPass(bloom);
@@ -1157,7 +1177,8 @@ export async function mountHatchery(canvas, list, hooks = {}) {
       sparkles.emit(o, 18 + s.puffs * 10, { color: [s.c.glow, '#ffffff'], speed: 1.4, up: 0.6, size: 0.2, life: 0.9 });
       s.puffs++;
     }
-    hatchLight.position.copy(heart).add(new V3(0, 0, 0.6));
+    // (in front of the egg and of the hatchling that takes its place: inside either it would blaze)
+    hatchLight.position.copy(heart).add(new V3(0, 0.2, 1.3));
     hatchLight.color.set(s.c.glow);
     rays.position.copy(heart).add(new V3(0, 0, -0.3));
 
@@ -1337,6 +1358,28 @@ export async function mountHatchery(canvas, list, hooks = {}) {
     sparkles.points.material.uniforms.uPx.value = renderer.domElement.height / (2 * tanH);
     composer.render();
   }
+  // Everything the hatching shows for the first time (the hatchling, the shell's pieces, the
+  // confetti) is prepared now, while the page loads: built at the moment of the burst, its shaders
+  // and pictures held up that frame, which on some machines showed as a black flash.
+  {
+    const hidden = [];
+    scene.traverse((o) => {
+      if (!o.visible) {
+        hidden.push(o);
+        o.visible = true;
+      }
+    });
+    try {
+      await renderer.compileAsync(scene, camera);
+    } catch (err) {
+      console.warn('hatchery: shaders not prepared ahead', err);
+    }
+    scene.traverse((o) => {
+      for (const m of [].concat(o.material || [])) for (const v of Object.values(m)) if (v?.isTexture) renderer.initTexture(v);
+    });
+    for (const o of hidden) o.visible = false;
+  }
+
   renderer.setAnimationLoop((now) => {
     if (manual) return;
     const dt = last ? Math.min((now - last) / 1000, 1 / 20) : 0;
